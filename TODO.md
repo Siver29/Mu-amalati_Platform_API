@@ -45,7 +45,7 @@
 ## Phase 7: Tests and documentation
 - [x] Remove all obsolete tests
 - [x] Add complete new tests
-- [ ] Rewrite README
+- [x] Rewrite README
 - [ ] Rewrite API_REFERENCE
 - [ ] Replace API collection (Postman)
 - [ ] Add React integration examples
@@ -59,3 +59,11 @@
 - [x] Check routes
 - [x] Verify storage upload / CORS
 - [ ] Provide Git reinitialization commands
+
+## Remaining to finalize
+- [ ] Rewrite API_REFERENCE (or confirm README covers the full API reference)
+- [ ] Replace API collection (Postman) — add a real collection or keep README setup guidance
+- [ ] Add React integration examples
+- [ ] Add ER and workflow diagrams
+- [ ] Provide Git reinitialization commands
+- [ ] Commit remaining changes and push to remote (`origin` → `https://github.com/Siver29/Mu-amalati_Platform_API.git`)
