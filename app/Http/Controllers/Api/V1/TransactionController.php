@@ -282,8 +282,8 @@ class TransactionController extends Controller
         $attachments = DB::transaction(function () use ($request, $transaction, $user) {
             $created = [];
 
-            foreach ($request->file('attachments') as $file) {
-                $path = $file->store('transactions', 'public');
+foreach ($request->file('attachments') as $file) {
+                $path = $file->storeAs('transactions', $file->getClientOriginalName(), 'public');
                 $record = TransactionAttachment::create([
                     'transaction_id' => $transaction->id,
                     'uploaded_by' => $user->id,
@@ -343,8 +343,8 @@ class TransactionController extends Controller
             return;
         }
 
-        foreach ($request->file('attachments') as $file) {
-            $path = $file->store('transactions', 'public');
+foreach ($request->file('attachments') as $file) {
+            $path = $file->storeAs('transactions', $file->getClientOriginalName(), 'public');
             TransactionAttachment::create([
                 'transaction_id' => $transaction->id,
                 'uploaded_by' => $user->id,

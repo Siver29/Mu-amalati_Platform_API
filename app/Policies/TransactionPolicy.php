@@ -63,16 +63,15 @@ class TransactionPolicy
     /**
      * Determine whether the user can review (approve/return/reject) the transaction.
      */
-    public function review(User $user, Transaction $transaction): bool
+public function review(User $user, Transaction $transaction): bool
     {
         if ($user->isAdmin()) {
             return true;
         }
 
-        if ($transaction->created_by === $user->id) {
-            return false;
-        }
-
+        // Only gate on role and department. Business-rule conflicts
+        // (own transaction, already-reviewed step, invalid state) are
+        // handled by the workflow service and returned as HTTP 409.
         return $this->isAuthorizedReviewer($user, $transaction);
     }
 
@@ -92,18 +91,24 @@ class TransactionPolicy
     /**
      * Determine whether the user is an authorized reviewer for the transaction.
      */
-    protected function isAuthorizedReviewer(User $user, Transaction $transaction): bool
+protected function isAuthorizedReviewer(User $user, Transaction $transaction): bool
     {
         if (! $user->isManager()) {
             return false;
         }
 
-        $currentDepartmentId = $transaction->current_department_id;
+        $departmentIds = array_filter([
+            $transaction->current_department_id,
+            $transaction->destination_department_id,
+            $transaction->source_department_id,
+        ]);
 
-        if (! $currentDepartmentId) {
+        if (empty($departmentIds)) {
             return false;
         }
 
-        return $user->managedDepartments()->where('id', $currentDepartmentId)->exists();
+        return $user->managedDepartments()
+            ->whereIn('id', $departmentIds)
+            ->exists();
     }
 }

@@ -99,7 +99,7 @@ class DashboardController extends Controller
 
         $pendingFive = (clone $pendingQuery)
             ->with(['creator', 'transactionType'])
-            ->orderByRaw("FIELD(priority, 'high', 'medium', 'low')")
+            ->orderByRaw("CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END")
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();

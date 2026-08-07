@@ -156,7 +156,7 @@ class Transaction extends Model
     {
         return match ($sort) {
             'oldest' => $query->orderBy('created_at', 'asc'),
-            'priority' => $query->orderByRaw("FIELD(priority, 'high', 'medium', 'low')")->orderBy('created_at', 'desc'),
+'priority' => $query->orderByRaw("CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 ELSE 3 END")->orderBy('created_at', 'desc'),
             'transaction_number' => $query->orderBy('transaction_number'),
             default => $query->orderBy('created_at', 'desc'),
         };

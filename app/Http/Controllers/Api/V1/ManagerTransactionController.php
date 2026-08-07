@@ -35,8 +35,8 @@ class ManagerTransactionController extends Controller
         $transactions = Transaction::query()
             ->where('status', 'pending')
             ->whereIn('current_department_id', $departmentIds)
-            ->with(['creator.department', 'transactionType', 'sourceDepartment', 'destinationDepartment', 'currentDepartment', 'currentWorkflowStep'])
-            ->orderByRaw("FIELD(priority, 'high', 'medium', 'low')")
+->with(['creator.department', 'transactionType', 'sourceDepartment', 'destinationDepartment', 'currentDepartment', 'currentWorkflowStep'])
+            ->orderByRaw("CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 ELSE 3 END")
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
 
