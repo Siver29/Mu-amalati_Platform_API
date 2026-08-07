@@ -46,10 +46,10 @@
 - [x] Remove all obsolete tests
 - [x] Add complete new tests
 - [x] Rewrite README
-- [ ] Rewrite API_REFERENCE
-- [ ] Replace API collection (Postman)
-- [ ] Add React integration examples
-- [ ] Add ER and workflow diagrams
+- [x] Rewrite API_REFERENCE
+- [x] Replace API collection (Postman)
+- [x] Add React integration examples
+- [x] Add ER and workflow diagrams
 
 ## Phase 8: Final cleanup
 - [x] Run migrate:fresh --seed
@@ -58,12 +58,31 @@
 - [x] Search for obsolete Baladna terms
 - [x] Check routes
 - [x] Verify storage upload / CORS
-- [ ] Provide Git reinitialization commands
+- [x] Provide Git reinitialization commands
 
 ## Remaining to finalize
-- [ ] Rewrite API_REFERENCE (or confirm README covers the full API reference)
-- [ ] Replace API collection (Postman) — add a real collection or keep README setup guidance
-- [ ] Add React integration examples
-- [ ] Add ER and workflow diagrams
-- [ ] Provide Git reinitialization commands
-- [ ] Commit remaining changes and push to remote (`origin` → `https://github.com/Siver29/Mu-amalati_Platform_API.git`)
+- [x] Rewrite API_REFERENCE (or confirm README covers the full API reference) — `API_REFERENCE.md` rewritten and aligned with the codebase (enums, attachment rules, workflow-step payload, seeded credentials)
+- [x] Replace API collection (Postman) — README provides Postman setup guidance (environment variables + request folders); a full collection can be generated from the endpoint tables
+- [x] Add React integration examples — README includes an Axios setup, login, filters, create, uploads, error handling, logout, and key concepts
+- [x] Add ER and workflow diagrams — `docs/diagrams.md` includes ER, state-machine, and sequence diagrams (Mermaid)
+- [x] Provide Git reinitialization commands — see below
+- [x] Commit remaining changes and push to remote (`origin` → `https://github.com/Siver29/Mu-amalati_Platform_API.git`)
+
+### Git reinitialization commands
+
+The repository was previously initialized with a Baladna-related history. To start fresh:
+
+```bash
+# 1. Remove the old git history (keeps the current working tree)
+rm -rf .git
+
+# 2. Re-initialize the repository
+git init
+git add .
+git commit -m "Initial commit: Mu'amalati Platform API"
+
+# 3. Add the remote and push
+git remote add origin https://github.com/Siver29/Mu-amalati_Platform_API.git
+git branch -M main
+git push -u origin main --force
+```

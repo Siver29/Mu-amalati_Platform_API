@@ -27,26 +27,31 @@ erDiagram
     DEPARTMENTS {
         int id PK
         string name
-        string code
-        string status
+        text description
+        int manager_id FK
+        boolean is_active
     }
     USERS {
         int id PK
         int department_id FK
         string name
         string email
+        string password
+        string phone
+        string job_title
         string role
         string status
-        string job_title
         int annual_leave_days
         int used_leave_days
     }
     TRANSACTION_TYPES {
         int id PK
-        string code
         string name_en
         string name_ar
-        string status
+        text description
+        int destination_department_id FK
+        boolean requires_attachment
+        boolean is_active
     }
     TRANSACTION_TYPE_WORKFLOW_STEPS {
         int id PK
@@ -54,12 +59,13 @@ erDiagram
         int department_id FK
         int step_order
         string name
+        boolean is_final
     }
     TRANSACTIONS {
         int id PK
         string transaction_number UK
-        int transaction_type_id FK
         int created_by FK
+        int transaction_type_id FK
         int source_department_id FK
         int destination_department_id FK
         int current_department_id FK
@@ -68,22 +74,29 @@ erDiagram
         text description
         string priority
         string status
-        timestamps submitted_at approved_at rejected_at returned_at completed_at
+        timestamp submitted_at
+        timestamp approved_at
+        timestamp rejected_at
+        timestamp returned_at
+        timestamp completed_at
+        int last_action_by FK
     }
     TRANSACTION_WORKFLOW_STEPS {
         int id PK
         int transaction_id FK
-        int reviewer_id FK
+        int department_id FK
+        int original_workflow_step_id FK
         int step_order
         string name
         string status
+        int reviewed_by FK
         text comment
         timestamp reviewed_at
     }
     TRANSACTION_HISTORIES {
         int id PK
         int transaction_id FK
-        int performer_id FK
+        int performed_by FK
         string action
         string old_status
         string new_status

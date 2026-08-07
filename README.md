@@ -9,7 +9,7 @@
 - **Departments** with a designated department manager
 - **Transaction types** and **configurable workflow steps** (admin-managed)
 - **Transaction lifecycle**: draft → pending → approved / returned / rejected → completed
-- **Workflow snapshots** per transaction, **history** log, and **attachments** (max 5, JPG/PNG/PDF/WebP, 5 MB)
+- **Workflow snapshots** per transaction, **history** log, and **attachments** (max 5, JPG/PNG/PDF/DOC/DOCX, 5 MB)
 - **Manager approvals**: approve / return / reject at each step with authorization & database locking
 - **Notifications** for workflow events
 - **Dashboards** for employee, manager, and admin

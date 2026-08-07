@@ -46,14 +46,14 @@ Authenticate and obtain a token.
 
 ```jsonc
 // Request
-{ "email": "admin@company.com", "password": "password" }
+{ "email": "admin@company.test", "password": "password" }
 
 // Response 200
 {
   "success": true,
   "message": "Login successful.",
   "data": {
-    "user": { "id": 1, "name": "Admin", "email": "admin@company.com", "role": "admin", "status": "active", "department": null },
+    "user": { "id": 1, "name": "System Admin", "email": "admin@company.test", "role": "admin", "status": "active", "department": null },
     "token": "1|xxxx..."
   }
 }
@@ -76,10 +76,10 @@ Return the authenticated user's profile.
 {
   "success": true,
   "data": {
-    "id": 1, "name": "Admin", "email": "admin@company.com", "phone": null,
+    "id": 1, "name": "System Admin", "email": "admin@company.test", "phone": null,
     "job_title": "Manager", "role": "admin", "status": "active",
     "annual_leave_days": 30, "used_leave_days": 0,
-    "department": { "id": 1, "name": "IT" }, "created_at": "...", "updated_at": "..."
+    "department": null, "created_at": "...", "updated_at": "..."
   }
 }
 ```
@@ -165,7 +165,7 @@ Upload attachments (multipart/form-data). Field name: `attachments[]`.
 |------------|-------|
 | Max files  | 5 per transaction |
 | Max size   | 5 MB per file |
-| Allowed    | pdf, jpg, jpeg, png, doc, docx, xls, xlsx |
+| Allowed    | pdf, jpg, jpeg, png, doc, docx |
 
 ### `DELETE /v1/transactions/{transaction}/attachments/{attachment}`
 Delete an attachment (owner only).
@@ -292,9 +292,9 @@ Workflow step payload:
 ```jsonc
 {
   "name": "Department Manager Approval",
-  "department_id": 1,          // optional
-  "step_order": 1,             // optional (auto-assigned)
-  "required_attachments": true // optional
+  "department_id": 1,          // required
+  "step_order": 1,             // required (unique per transaction type)
+  "is_final": false            // optional; marks the final approval step
 }
 ```
 
@@ -351,7 +351,7 @@ Workflow step payload:
 
 ### Notification
 ```jsonc
-{ "id": 1, "transaction_id": 1, "title": "...", "message": "...", "type": "workflow",
+{ "id": 1, "transaction_id": 1, "title": "...", "message": "...", "type": "review_required",
   "is_read": false, "read_at": null, "created_at": "..." }
 ```
 
@@ -365,9 +365,9 @@ Workflow step payload:
 | `UserStatus` | `active`, `inactive` |
 | `TransactionPriority` | `low`, `medium`, `high` |
 | `TransactionStatus` | `draft`, `pending`, `returned`, `approved`, `rejected`, `completed` |
-| `WorkflowStepStatus` | `pending`, `approved`, `returned`, `rejected` |
-| `TransactionHistoryAction` | `created`, `updated`, `submitted`, `resubmitted`, `approved_step`, `returned_step`, `rejected_step`, `completed` |
-| `NotificationType` | `workflow`, `system` |
+| `WorkflowStepStatus` | `waiting`, `pending`, `approved`, `returned`, `rejected`, `skipped` |
+| `TransactionHistoryAction` | `created`, `updated`, `submitted`, `resubmitted`, `approved_step`, `returned`, `rejected`, `fully_approved`, `completed`, `attachment_added`, `attachment_removed` |
+| `NotificationType` | `transaction_submitted`, `transaction_approved`, `transaction_returned`, `transaction_rejected`, `transaction_completed`, `review_required` |
 
 ---
 
