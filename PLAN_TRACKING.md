@@ -5,5 +5,5 @@
 - [x] 3. Update `docs/diagrams.md` — correct ER diagram to match actual schema
 - [x] 4. Update `TODO.md` — mark remaining items done, add Git reinitialization commands
 - [x] 5. Verify code matches plan (already verified during inspection)
-- [ ] 6. Commit changes and push to `origin`
+- [x] 6. Commit changes and push to `origin`
 
