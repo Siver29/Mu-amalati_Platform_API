@@ -27,46 +27,141 @@ class DashboardController extends Controller
 
         $counts = [
             'total' => (clone $transactions)->count(),
-            'draft' => (clone $transactions)->where('status', TransactionStatus::Draft)->count(),
-            'pending' => (clone $transactions)->where('status', TransactionStatus::Pending)->count(),
-            'returned' => (clone $transactions)->where('status', TransactionStatus::Returned)->count(),
-            'rejected' => (clone $transactions)->where('status', TransactionStatus::Rejected)->count(),
-            'approved' => (clone $transactions)->where('status', TransactionStatus::Approved)->count(),
-            'completed' => (clone $transactions)->where('status', TransactionStatus::Completed)->count(),
+
+            'draft' => (clone $transactions)
+                ->where(
+                    'status',
+                    TransactionStatus::Draft
+                )
+                ->count(),
+
+            'pending' => (clone $transactions)
+                ->where(
+                    'status',
+                    TransactionStatus::Pending
+                )
+                ->count(),
+
+            'returned' => (clone $transactions)
+                ->where(
+                    'status',
+                    TransactionStatus::Returned
+                )
+                ->count(),
+
+            'rejected' => (clone $transactions)
+                ->where(
+                    'status',
+                    TransactionStatus::Rejected
+                )
+                ->count(),
+
+            'approved' => (clone $transactions)
+                ->where(
+                    'status',
+                    TransactionStatus::Approved
+                )
+                ->count(),
+
+            'completed' => (clone $transactions)
+                ->where(
+                    'status',
+                    TransactionStatus::Completed
+                )
+                ->count(),
         ];
 
         $recent = (clone $transactions)
-            ->with(['transactionType'])
-            ->orderBy('created_at', 'desc')
+            ->with([
+                'transactionType',
+            ])
+            ->orderBy(
+                'created_at',
+                'desc'
+            )
             ->limit(5)
             ->get();
 
-        $unread = $user->notifications()->where('is_read', false)->count();
+        $unread = $user
+            ->notifications()
+            ->where(
+                'is_read',
+                false
+            )
+            ->count();
 
         return $this->success([
             'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'job_title' => $user->job_title,
-                'department' => $user->department ? ['id' => $user->department->id, 'name' => $user->department->name] : null,
+                'id' =>
+                    $user->id,
+
+                'name' =>
+                    $user->name,
+
+                'email' =>
+                    $user->email,
+
+                'job_title' =>
+                    $user->job_title,
+
+                'department' =>
+                    $user->department
+                        ? [
+                            'id' =>
+                                $user->department->id,
+
+                            'name' =>
+                                $user->department->name,
+                        ]
+                        : null,
             ],
+
             'leave_balance' => [
-                'annual_leave_days' => $user->annual_leave_days,
-                'used_leave_days' => $user->used_leave_days,
-                'remaining_leave_days' => max(0, $user->annual_leave_days - $user->used_leave_days),
+                'annual_leave_days' =>
+                    $user->annual_leave_days,
+
+                'used_leave_days' =>
+                    $user->used_leave_days,
+
+                'remaining_leave_days' =>
+                    max(
+                        0,
+                        $user->annual_leave_days -
+                        $user->used_leave_days
+                    ),
             ],
-            'transaction_counts' => $counts,
-            'recent_transactions' => $recent->map(fn ($t) => [
-                'id' => $t->id,
-                'transaction_number' => $t->transaction_number,
-                'title' => $t->title,
-                'status' => $t->status->value,
-                'priority' => $t->priority->value,
-                'transaction_type' => $t->transactionType?->name_en,
-                'created_at' => $t->created_at?->toISOString(),
-            ]),
-            'unread_notification_count' => $unread,
+
+            'transaction_counts' =>
+                $counts,
+
+            'recent_transactions' =>
+                $recent->map(
+                    fn ($t) => [
+                        'id' =>
+                            $t->id,
+
+                        'transaction_number' =>
+                            $t->transaction_number,
+
+                        'title' =>
+                            $t->title,
+
+                        'status' =>
+                            $t->status->value,
+
+                        'priority' =>
+                            $t->priority->value,
+
+                        'transaction_type' =>
+                            $t->transactionType?->name_en,
+
+                        'created_at' =>
+                            $t->created_at?->toISOString(),
+                    ]
+                ),
+
+            'unread_notification_count' =>
+                $unread,
         ]);
     }
 
@@ -76,53 +171,146 @@ class DashboardController extends Controller
     public function manager(Request $request): JsonResponse
     {
         $user = $request->user();
-        $departmentIds = $user->managedDepartmentIds();
 
-        $pendingQuery = Transaction::where('status', TransactionStatus::Pending)
-            ->whereIn('current_department_id', $departmentIds);
+        $departmentIds =
+            $user->managedDepartmentIds();
 
-        $today = now()->toDateString();
+        $pendingQuery =
+            Transaction::where(
+                'status',
+                TransactionStatus::Pending
+            )
+                ->whereIn(
+                    'current_department_id',
+                    $departmentIds
+                );
 
-        $pendingCount = (clone $pendingQuery)->count();
-        $approvedToday = Transaction::where('status', TransactionStatus::Approved)
-            ->whereIn('source_department_id', $departmentIds)
-            ->whereDate('approved_at', $today)
-            ->count();
-        $returnedToday = Transaction::where('status', TransactionStatus::Returned)
-            ->whereIn('source_department_id', $departmentIds)
-            ->whereDate('returned_at', $today)
-            ->count();
-        $rejectedToday = Transaction::where('status', TransactionStatus::Rejected)
-            ->whereIn('source_department_id', $departmentIds)
-            ->whereDate('rejected_at', $today)
-            ->count();
+        $today =
+            now()->toDateString();
 
-        $pendingFive = (clone $pendingQuery)
-            ->with(['creator', 'transactionType'])
-            ->orderByRaw("CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END")
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get();
+        $pendingCount =
+            (clone $pendingQuery)->count();
+
+        $approvedToday =
+            Transaction::where(
+                'status',
+                TransactionStatus::Approved
+            )
+                ->whereIn(
+                    'source_department_id',
+                    $departmentIds
+                )
+                ->whereDate(
+                    'approved_at',
+                    $today
+                )
+                ->count();
+
+        $returnedToday =
+            Transaction::where(
+                'status',
+                TransactionStatus::Returned
+            )
+                ->whereIn(
+                    'source_department_id',
+                    $departmentIds
+                )
+                ->whereDate(
+                    'returned_at',
+                    $today
+                )
+                ->count();
+
+        $rejectedToday =
+            Transaction::where(
+                'status',
+                TransactionStatus::Rejected
+            )
+                ->whereIn(
+                    'source_department_id',
+                    $departmentIds
+                )
+                ->whereDate(
+                    'rejected_at',
+                    $today
+                )
+                ->count();
+
+        $pendingFive =
+            (clone $pendingQuery)
+                ->with([
+                    'creator',
+                    'transactionType',
+                ])
+                ->orderByRaw(
+                    "CASE priority
+                        WHEN 'high' THEN 0
+                        WHEN 'medium' THEN 1
+                        ELSE 2
+                    END"
+                )
+                ->orderBy(
+                    'created_at',
+                    'desc'
+                )
+                ->limit(5)
+                ->get();
 
         return $this->success([
             'manager' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
+                'id' =>
+                    $user->id,
+
+                'name' =>
+                    $user->name,
+
+                'email' =>
+                    $user->email,
             ],
-            'managed_departments' => Department::whereIn('id', $departmentIds)->get(['id', 'name']),
-            'pending_approval_count' => $pendingCount,
-            'approved_today_count' => $approvedToday,
-            'returned_today_count' => $returnedToday,
-            'rejected_today_count' => $rejectedToday,
-            'pending_transactions' => $pendingFive->map(fn ($t) => [
-                'id' => $t->id,
-                'transaction_number' => $t->transaction_number,
-                'title' => $t->title,
-                'priority' => $t->priority->value,
-                'creator' => $t->creator?->name,
-                'transaction_type' => $t->transactionType?->name_en,
-            ]),
+
+            'managed_departments' =>
+                Department::whereIn(
+                    'id',
+                    $departmentIds
+                )->get([
+                    'id',
+                    'name',
+                ]),
+
+            'pending_approval_count' =>
+                $pendingCount,
+
+            'approved_today_count' =>
+                $approvedToday,
+
+            'returned_today_count' =>
+                $returnedToday,
+
+            'rejected_today_count' =>
+                $rejectedToday,
+
+            'pending_transactions' =>
+                $pendingFive->map(
+                    fn ($t) => [
+                        'id' =>
+                            $t->id,
+
+                        'transaction_number' =>
+                            $t->transaction_number,
+
+                        'title' =>
+                            $t->title,
+
+                        'priority' =>
+                            $t->priority->value,
+
+                        'creator' =>
+                            $t->creator?->name,
+
+                        'transaction_type' =>
+                            $t->transactionType?->name_en,
+                    ]
+                ),
         ]);
     }
 
@@ -131,73 +319,386 @@ class DashboardController extends Controller
      */
     public function admin(Request $request): JsonResponse
     {
-        $totalEmployees = User::where('role', 'employee')->count();
-        $totalManagers = User::where('role', 'manager')->count();
-        $activeUsers = User::where('status', 'active')->count();
-        $inactiveUsers = User::where('status', 'inactive')->count();
-        $totalDepartments = Department::count();
-        $totalTypes = TransactionType::count();
-        $totalTransactions = Transaction::count();
+        /*
+         * --------------------------------------------------
+         * Basic account statistics
+         * --------------------------------------------------
+         */
 
-        $byStatus = Transaction::query()
-            ->selectRaw('status, count(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
+        $totalEmployees =
+            User::where(
+                'role',
+                'employee'
+            )->count();
 
-        $usersByDept = User::query()
-            ->selectRaw('department_id, count(*) as total')
-            ->whereNotNull('department_id')
-            ->groupBy('department_id')
-            ->with('department:id,name')
-            ->get()
-            ->map(fn ($row) => [
-                'department' => $row->department?->name,
-                'total' => $row->total,
-            ]);
+        $totalManagers =
+            User::where(
+                'role',
+                'manager'
+            )->count();
 
-        $transactionsByDept = Transaction::query()
-            ->selectRaw('source_department_id, count(*) as total')
-            ->groupBy('source_department_id')
-            ->with('sourceDepartment:id,name')
-            ->get()
-            ->map(fn ($row) => [
-                'department' => $row->sourceDepartment?->name,
-                'total' => $row->total,
-            ]);
+        $activeUsers =
+            User::where(
+                'status',
+                'active'
+            )->count();
 
-        $latestUsers = User::with('department')->orderBy('created_at', 'desc')->limit(5)->get();
+        $inactiveUsers =
+            User::where(
+                'status',
+                'inactive'
+            )->count();
 
-        $latestTransactions = Transaction::with(['transactionType', 'creator'])
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get();
+        /*
+         * --------------------------------------------------
+         * Work status statistics
+         *
+         * Attendance based:
+         *
+         * - Working = checked in and not checked out
+         * - On Leave = approved leave covering today
+         * - Inactive = no active attendance
+         * --------------------------------------------------
+         */
+
+        $employees =
+            User::where(
+                'role',
+                'employee'
+            )->get();
+
+        $workingEmployees =
+            $employees
+                ->filter(
+                    fn (User $user) =>
+                        $user->workStatus() ===
+                        'working'
+                )
+                ->count();
+
+        $employeesOnLeave =
+            $employees
+                ->filter(
+                    fn (User $user) =>
+                        $user->workStatus() ===
+                        'on_leave'
+                )
+                ->count();
+
+        $inactiveEmployees =
+            $employees
+                ->filter(
+                    fn (User $user) =>
+                        $user->workStatus() ===
+                        'inactive'
+                )
+                ->count();
+
+        /*
+         * --------------------------------------------------
+         * Employees currently on leave
+         * --------------------------------------------------
+         */
+
+        $employeesCurrentlyOnLeave =
+            $employees
+                ->filter(
+                    fn (User $user) =>
+                        $user->isActive() &&
+                        $user->isOnLeave()
+                )
+                ->map(
+                    function (User $user) {
+
+                        $leaveTransaction =
+                            $user
+                                ->createdTransactions()
+                                ->whereHas(
+                                    'transactionType',
+                                    function ($query) {
+                                        $query->where(
+                                            'name_en',
+                                            'Leave Request'
+                                        );
+                                    }
+                                )
+                                ->where(
+                                    'status',
+                                    TransactionStatus::Approved
+                                )
+                                ->whereDate(
+                                    'start_date',
+                                    '<=',
+                                    now()->toDateString()
+                                )
+                                ->whereDate(
+                                    'end_date',
+                                    '>=',
+                                    now()->toDateString()
+                                )
+                                ->orderBy(
+                                    'end_date',
+                                    'asc'
+                                )
+                                ->first();
+
+                        return [
+                            'id' =>
+                                $user->id,
+
+                            'name' =>
+                                $user->name,
+
+                            'email' =>
+                                $user->email,
+
+                            'job_title' =>
+                                $user->job_title,
+
+                            'department' =>
+                                $user->department?->name,
+
+                            'status' =>
+                                'on_leave',
+
+                            'leave_start' =>
+                                $leaveTransaction?->start_date
+                                    ?->toDateString(),
+
+                            'leave_end' =>
+                                $leaveTransaction?->end_date
+                                    ?->toDateString(),
+                        ];
+                    }
+                )
+                ->values();
+
+        /*
+         * --------------------------------------------------
+         * System statistics
+         * --------------------------------------------------
+         */
+
+        $totalDepartments =
+            Department::count();
+
+        $totalTypes =
+            TransactionType::count();
+
+        $totalTransactions =
+            Transaction::count();
+
+        /*
+         * --------------------------------------------------
+         * Transactions by status
+         * --------------------------------------------------
+         */
+
+        $byStatus =
+            Transaction::query()
+                ->selectRaw(
+                    'status, count(*) as total'
+                )
+                ->groupBy(
+                    'status'
+                )
+                ->pluck(
+                    'total',
+                    'status'
+                );
+
+        /*
+         * --------------------------------------------------
+         * Users by department
+         * --------------------------------------------------
+         */
+
+        $usersByDept =
+            User::query()
+                ->selectRaw(
+                    'department_id, count(*) as total'
+                )
+                ->whereNotNull(
+                    'department_id'
+                )
+                ->groupBy(
+                    'department_id'
+                )
+                ->with(
+                    'department:id,name'
+                )
+                ->get()
+                ->map(
+                    fn ($row) => [
+                        'department' =>
+                            $row->department?->name,
+
+                        'total' =>
+                            $row->total,
+                    ]
+                );
+
+        /*
+         * --------------------------------------------------
+         * Transactions by department
+         * --------------------------------------------------
+         */
+
+        $transactionsByDept =
+            Transaction::query()
+                ->selectRaw(
+                    'source_department_id, count(*) as total'
+                )
+                ->groupBy(
+                    'source_department_id'
+                )
+                ->with(
+                    'sourceDepartment:id,name'
+                )
+                ->get()
+                ->map(
+                    fn ($row) => [
+                        'department' =>
+                            $row->sourceDepartment?->name,
+
+                        'total' =>
+                            $row->total,
+                    ]
+                );
+
+        /*
+         * --------------------------------------------------
+         * Latest users
+         * --------------------------------------------------
+         */
+
+        $latestUsers =
+            User::with(
+                'department'
+            )
+                ->orderBy(
+                    'created_at',
+                    'desc'
+                )
+                ->limit(5)
+                ->get();
+
+        /*
+         * --------------------------------------------------
+         * Latest transactions
+         * --------------------------------------------------
+         */
+
+        $latestTransactions =
+            Transaction::with([
+                'transactionType',
+                'creator',
+            ])
+                ->orderBy(
+                    'created_at',
+                    'desc'
+                )
+                ->limit(5)
+                ->get();
+
+        /*
+         * --------------------------------------------------
+         * Response
+         * --------------------------------------------------
+         */
 
         return $this->success([
-            'total_employees' => $totalEmployees,
-            'total_managers' => $totalManagers,
-            'active_users' => $activeUsers,
-            'inactive_users' => $inactiveUsers,
-            'total_departments' => $totalDepartments,
-            'total_transaction_types' => $totalTypes,
-            'total_transactions' => $totalTransactions,
-            'transactions_by_status' => $byStatus,
-            'users_by_department' => $usersByDept,
-            'transactions_by_department' => $transactionsByDept,
-            'latest_users' => $latestUsers->map(fn ($u) => [
-                'id' => $u->id,
-                'name' => $u->name,
-                'email' => $u->email,
-                'role' => $u->role->value,
-                'department' => $u->department?->name,
-            ]),
-            'latest_transactions' => $latestTransactions->map(fn ($t) => [
-                'id' => $t->id,
-                'transaction_number' => $t->transaction_number,
-                'title' => $t->title,
-                'status' => $t->status->value,
-                'transaction_type' => $t->transactionType?->name_en,
-                'creator' => $t->creator?->name,
-            ]),
+            'total_employees' =>
+                $totalEmployees,
+
+            'total_managers' =>
+                $totalManagers,
+
+            'active_users' =>
+                $activeUsers,
+
+            'inactive_users' =>
+                $inactiveUsers,
+
+            'working_employees' =>
+                $workingEmployees,
+
+            'employees_on_leave' =>
+                $employeesOnLeave,
+
+            'inactive_employees' =>
+                $inactiveEmployees,
+
+            'employees_currently_on_leave' =>
+                $employeesCurrentlyOnLeave,
+
+            'total_departments' =>
+                $totalDepartments,
+
+            'total_transaction_types' =>
+                $totalTypes,
+
+            'total_transactions' =>
+                $totalTransactions,
+
+            'transactions_by_status' =>
+                $byStatus,
+
+            'users_by_department' =>
+                $usersByDept,
+
+            'transactions_by_department' =>
+                $transactionsByDept,
+
+            'latest_users' =>
+                $latestUsers->map(
+                    fn ($u) => [
+                        'id' =>
+                            $u->id,
+
+                        'name' =>
+                            $u->name,
+
+                        'email' =>
+                            $u->email,
+
+                        'role' =>
+                            $u->role->value,
+
+                        'department' =>
+                            $u->department?->name,
+
+                        'account_status' =>
+                            $u->status->value,
+
+                        'work_status' =>
+                            $u->workStatus(),
+                    ]
+                ),
+
+            'latest_transactions' =>
+                $latestTransactions->map(
+                    fn ($t) => [
+                        'id' =>
+                            $t->id,
+
+                        'transaction_number' =>
+                            $t->transaction_number,
+
+                        'title' =>
+                            $t->title,
+
+                        'status' =>
+                            $t->status->value,
+
+                        'transaction_type' =>
+                            $t->transactionType?->name_en,
+
+                        'creator' =>
+                            $t->creator?->name,
+                    ]
+                ),
         ]);
     }
 }
+

@@ -11,8 +11,10 @@ class TransactionPolicy
     /**
      * Determine whether the user can view the transaction.
      */
-    public function view(User $user, Transaction $transaction): bool
-    {
+    public function view(
+        User $user,
+        Transaction $transaction
+    ): bool {
         if ($user->isAdmin()) {
             return true;
         }
@@ -21,7 +23,24 @@ class TransactionPolicy
             return true;
         }
 
-        return $this->isAuthorizedReviewer($user, $transaction);
+        /*
+         * A manager can view a transaction if one of
+         * its workflow departments is managed by that manager.
+         *
+         * This allows managers to keep viewing transactions
+         * they already reviewed, even after the workflow
+         * moves to another department.
+         */
+        if ($user->isManager()) {
+            return $transaction->workflowSteps()
+                ->whereIn(
+                    'department_id',
+                    $user->managedDepartmentIds()
+                )
+                ->exists();
+        }
+
+        return false;
     }
 
     /**
@@ -29,14 +48,17 @@ class TransactionPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isEmployee() || $user->isManager();
+        return $user->isEmployee()
+            || $user->isManager();
     }
 
     /**
      * Determine whether the user can update the transaction.
      */
-    public function update(User $user, Transaction $transaction): bool
-    {
+    public function update(
+        User $user,
+        Transaction $transaction
+    ): bool {
         return $transaction->created_by === $user->id
             && $transaction->status->isEditable();
     }
@@ -44,8 +66,10 @@ class TransactionPolicy
     /**
      * Determine whether the user can delete the transaction.
      */
-    public function delete(User $user, Transaction $transaction): bool
-    {
+    public function delete(
+        User $user,
+        Transaction $transaction
+    ): bool {
         return $transaction->created_by === $user->id
             && $transaction->status === TransactionStatus::Draft;
     }
@@ -53,33 +77,42 @@ class TransactionPolicy
     /**
      * Determine whether the user can submit/resubmit the transaction.
      */
-    public function submit(User $user, Transaction $transaction): bool
-    {
+    public function submit(
+        User $user,
+        Transaction $transaction
+    ): bool {
         return $transaction->created_by === $user->id
-            && ($transaction->status === TransactionStatus::Draft
-                || $transaction->status === TransactionStatus::Returned);
+            && (
+                $transaction->status === TransactionStatus::Draft
+                || $transaction->status === TransactionStatus::Returned
+            );
     }
 
     /**
-     * Determine whether the user can review (approve/return/reject) the transaction.
+     * Determine whether the user can review
+     * (approve/return/reject) the transaction.
      */
-public function review(User $user, Transaction $transaction): bool
-    {
+    public function review(
+        User $user,
+        Transaction $transaction
+    ): bool {
         if ($user->isAdmin()) {
             return true;
         }
 
-        // Only gate on role and department. Business-rule conflicts
-        // (own transaction, already-reviewed step, invalid state) are
-        // handled by the workflow service and returned as HTTP 409.
-        return $this->isAuthorizedReviewer($user, $transaction);
+        return $this->isAuthorizedReviewer(
+            $user,
+            $transaction
+        );
     }
 
     /**
      * Determine whether the user can add or remove attachments.
      */
-    public function manageAttachments(User $user, Transaction $transaction): bool
-    {
+    public function manageAttachments(
+        User $user,
+        Transaction $transaction
+    ): bool {
         if ($user->isAdmin()) {
             return true;
         }
@@ -89,26 +122,26 @@ public function review(User $user, Transaction $transaction): bool
     }
 
     /**
-     * Determine whether the user is an authorized reviewer for the transaction.
+     * Determine whether the user is an authorized reviewer
+     * for the transaction's CURRENT workflow step.
      */
-protected function isAuthorizedReviewer(User $user, Transaction $transaction): bool
-    {
+    protected function isAuthorizedReviewer(
+        User $user,
+        Transaction $transaction
+    ): bool {
         if (! $user->isManager()) {
             return false;
         }
 
-        $departmentIds = array_filter([
-            $transaction->current_department_id,
-            $transaction->destination_department_id,
-            $transaction->source_department_id,
-        ]);
-
-        if (empty($departmentIds)) {
+        if (! $transaction->current_department_id) {
             return false;
         }
 
         return $user->managedDepartments()
-            ->whereIn('id', $departmentIds)
+            ->where(
+                'id',
+                $transaction->current_department_id
+            )
             ->exists();
     }
 }

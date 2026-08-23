@@ -49,17 +49,31 @@ class TransactionType extends Model
 
     public function destinationDepartment(): BelongsTo
     {
-        return $this->belongsTo(Department::class, 'destination_department_id');
+        return $this->belongsTo(
+            Department::class,
+            'destination_department_id'
+        );
+    }
+
+    public function fields(): HasMany
+    {
+        return $this->hasMany(
+            TransactionTypeField::class
+        )->orderBy('field_order');
     }
 
     public function workflowSteps(): HasMany
     {
-        return $this->hasMany(TransactionTypeWorkflowStep::class)->orderBy('step_order');
+        return $this->hasMany(
+            TransactionTypeWorkflowStep::class
+        )->orderBy('step_order');
     }
 
     public function transactions(): HasMany
     {
-        return $this->hasMany(Transaction::class);
+        return $this->hasMany(
+            Transaction::class
+        );
     }
 
     /*
@@ -68,8 +82,12 @@ class TransactionType extends Model
     |--------------------------------------------------------------------------
     */
 
-    public function scopeActive(Builder $query): Builder
-    {
-        return $query->where('is_active', true);
+    public function scopeActive(
+        Builder $query
+    ): Builder {
+        return $query->where(
+            'is_active',
+            true
+        );
     }
 }

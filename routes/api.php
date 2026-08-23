@@ -13,7 +13,8 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\TransactionController;
 use App\Http\Controllers\Api\V1\TransactionTypeController;
 use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\Api\V1\Admin\AdminTransactionTypeFieldController;
+use App\Http\Controllers\AttendanceController;
 Route::prefix('v1')->group(function () {
 
     /*
@@ -30,6 +31,20 @@ Route::prefix('v1')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::patch('/auth/me', [AuthController::class, 'updateProfile']);
         Route::patch('/auth/password', [AuthController::class, 'changePassword']);
+        Route::get(
+    '/attendance/current',
+    [AttendanceController::class, 'current']
+);
+
+Route::post(
+    '/attendance/check-in',
+    [AttendanceController::class, 'checkIn']
+);
+
+Route::post(
+    '/attendance/check-out',
+    [AttendanceController::class, 'checkOut']
+);
     });
 
     /*
@@ -44,6 +59,8 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/transaction-types', [TransactionTypeController::class, 'index']);
         Route::get('/transaction-types/{transactionType}', [TransactionTypeController::class, 'show']);
+        Route::get('/transaction-types/{transactionType}/fields', [TransactionTypeController::class, 'fields']
+);
     });
 
     /*
@@ -151,5 +168,30 @@ Route::prefix('v1')->group(function () {
         Route::get('/transactions', [AdminTransactionController::class, 'index']);
         Route::get('/transactions/{transaction}', [AdminTransactionController::class, 'show']);
         Route::post('/transactions/{transaction}/complete', [AdminTransactionController::class, 'complete']);
+
+        Route::get(
+        '/transaction-types/{transactionType}/fields',
+        [AdminTransactionTypeFieldController::class, 'index']
+    );
+
+    Route::post(
+        '/transaction-types/{transactionType}/fields',
+        [AdminTransactionTypeFieldController::class, 'store']
+    );
+
+    Route::patch(
+        '/transaction-type-fields/{transactionTypeField}',
+        [AdminTransactionTypeFieldController::class, 'update']
+    );
+
+    Route::delete(
+        '/transaction-type-fields/{transactionTypeField}',
+        [AdminTransactionTypeFieldController::class, 'destroy']
+    );
+
+    Route::put(
+        '/transaction-types/{transactionType}/fields/reorder',
+        [AdminTransactionTypeFieldController::class, 'reorder']
+    );  
     });
 });

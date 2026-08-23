@@ -76,26 +76,72 @@ class AdminWorkflowStepController extends Controller
     /**
      * Reorder the workflow steps for a transaction type.
      */
-    public function reorder(ReorderWorkflowStepsRequest $request, TransactionType $transactionType): JsonResponse
-    {
-        try {
-            DB::transaction(function () use ($request, $transactionType) {
-                $existing = $transactionType->workflowSteps()->pluck('id')->all();
+    public function reorder(
+    ReorderWorkflowStepsRequest $request,
+    TransactionType $transactionType
+): JsonResponse {
+    try {
+        DB::transaction(function () use (
+            $request,
+            $transactionType
+        ) {
+            $existing = $transactionType
+                ->workflowSteps()
+                ->pluck('id')
+                ->all();
 
-                foreach ($request->steps as $item) {
-                    if (! in_array($item['id'], $existing, true)) {
-                        throw new RuntimeException('One of the steps does not belong to this transaction type.');
-                    }
-
-                    TransactionTypeWorkflowStep::whereKey($item['id'])->update(['step_order' => $item['step_order']]);
+            foreach ($request->steps as $item) {
+                if (! in_array(
+                    $item['id'],
+                    $existing,
+                    true
+                )) {
+                    throw new RuntimeException(
+                        'One of the steps does not belong to this transaction type.'
+                    );
                 }
-            });
-        } catch (RuntimeException $e) {
-            return $this->error($e->getMessage(), 422);
-        }
+            }
 
-        $steps = $transactionType->workflowSteps()->with('department')->get();
+            /*
+             * Use temporary unique step_order values first
+             * to avoid UNIQUE constraint conflicts while swapping.
+             */
+            foreach ($request->steps as $index => $item) {
+                TransactionTypeWorkflowStep::whereKey(
+                    $item['id']
+                )->update([
+                    'step_order' => 1000 + $index,
+                ]);
+            }
 
-        return $this->success(TransactionTypeWorkflowStepResource::collection($steps), 'Workflow steps reordered successfully.');
+            /*
+             * Now apply the final order.
+             */
+            foreach ($request->steps as $item) {
+                TransactionTypeWorkflowStep::whereKey(
+                    $item['id']
+                )->update([
+                    'step_order' => $item['step_order'],
+                ]);
+            }
+        });
+    } catch (RuntimeException $e) {
+        return $this->error(
+            $e->getMessage(),
+            422
+        );
     }
+
+    $steps = $transactionType
+        ->workflowSteps()
+        ->with('department')
+        ->get();
+
+    return $this->success(
+        TransactionTypeWorkflowStepResource::collection(
+            $steps
+        ),
+        'Workflow steps reordered successfully.'
+    );
+}
 }

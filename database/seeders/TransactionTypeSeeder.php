@@ -28,10 +28,18 @@ class TransactionTypeSeeder extends Seeder
                 'destination_department_id' => $hr?->id,
                 'requires_attachment' => false,
                 'steps' => [
-                    ['name' => 'Direct Manager Review', 'department' => $operations],
-                    ['name' => 'Human Resources Review', 'department' => $hr, 'is_final' => true],
+                    [
+                        'name' => 'Direct Manager Review',
+                        'department' => $operations,
+                    ],
+                    [
+                        'name' => 'Human Resources Review',
+                        'department' => $hr,
+                        'is_final' => true,
+                    ],
                 ],
             ],
+
             [
                 'name_en' => 'Purchase Request',
                 'name_ar' => 'طلب شراء',
@@ -39,11 +47,22 @@ class TransactionTypeSeeder extends Seeder
                 'destination_department_id' => $procurement?->id,
                 'requires_attachment' => true,
                 'steps' => [
-                    ['name' => 'Direct Manager Review', 'department' => $operations],
-                    ['name' => 'Procurement Review', 'department' => $procurement],
-                    ['name' => 'Finance Review', 'department' => $finance, 'is_final' => true],
+                    [
+                        'name' => 'Direct Manager Review',
+                        'department' => $operations,
+                    ],
+                    [
+                        'name' => 'Procurement Review',
+                        'department' => $procurement,
+                    ],
+                    [
+                        'name' => 'Finance Review',
+                        'department' => $finance,
+                        'is_final' => true,
+                    ],
                 ],
             ],
+
             [
                 'name_en' => 'IT Support Request',
                 'name_ar' => 'طلب دعم تقني',
@@ -51,9 +70,14 @@ class TransactionTypeSeeder extends Seeder
                 'destination_department_id' => $it?->id,
                 'requires_attachment' => false,
                 'steps' => [
-                    ['name' => 'Information Technology Review', 'department' => $it, 'is_final' => true],
+                    [
+                        'name' => 'Information Technology Review',
+                        'department' => $it,
+                        'is_final' => true,
+                    ],
                 ],
             ],
+
             [
                 'name_en' => 'Advance Payment Request',
                 'name_ar' => 'طلب سلفة مالية',
@@ -61,10 +85,18 @@ class TransactionTypeSeeder extends Seeder
                 'destination_department_id' => $finance?->id,
                 'requires_attachment' => false,
                 'steps' => [
-                    ['name' => 'Direct Manager Review', 'department' => $operations],
-                    ['name' => 'Finance Review', 'department' => $finance, 'is_final' => true],
+                    [
+                        'name' => 'Direct Manager Review',
+                        'department' => $hr,
+                    ],
+                    [
+                        'name' => 'Finance Review',
+                        'department' => $finance,
+                        'is_final' => true,
+                    ],
                 ],
             ],
+
             [
                 'name_en' => 'Account Request',
                 'name_ar' => 'طلب إنشاء حساب',
@@ -72,10 +104,18 @@ class TransactionTypeSeeder extends Seeder
                 'destination_department_id' => $it?->id,
                 'requires_attachment' => false,
                 'steps' => [
-                    ['name' => 'Direct Manager Review', 'department' => $operations],
-                    ['name' => 'Information Technology Review', 'department' => $it, 'is_final' => true],
+                    [
+                        'name' => 'Direct Manager Review',
+                        'department' => $operations,
+                    ],
+                    [
+                        'name' => 'Information Technology Review',
+                        'department' => $it,
+                        'is_final' => true,
+                    ],
                 ],
             ],
+
             [
                 'name_en' => 'Complaint / Suggestion',
                 'name_ar' => 'شكوى أو اقتراح',
@@ -83,17 +123,24 @@ class TransactionTypeSeeder extends Seeder
                 'destination_department_id' => $hr?->id,
                 'requires_attachment' => false,
                 'steps' => [
-                    ['name' => 'Human Resources Review', 'department' => $hr, 'is_final' => true],
+                    [
+                        'name' => 'Human Resources Review',
+                        'department' => $hr,
+                        'is_final' => true,
+                    ],
                 ],
             ],
         ];
 
         foreach ($types as $typeData) {
             $steps = $typeData['steps'];
+
             unset($typeData['steps']);
 
             $type = TransactionType::updateOrCreate(
-                ['name_en' => $typeData['name_en']],
+                [
+                    'name_en' => $typeData['name_en'],
+                ],
                 $typeData
             );
 

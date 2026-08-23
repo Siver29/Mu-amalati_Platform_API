@@ -19,6 +19,7 @@ class TransactionAttachment extends Model
      */
     protected $fillable = [
         'transaction_id',
+        'transaction_type_field_id',
         'uploaded_by',
         'original_name',
         'file_path',
@@ -46,11 +47,24 @@ class TransactionAttachment extends Model
 
     public function transaction(): BelongsTo
     {
-        return $this->belongsTo(Transaction::class);
+        return $this->belongsTo(
+            Transaction::class
+        );
     }
 
     public function uploader(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'uploaded_by');
+        return $this->belongsTo(
+            User::class,
+            'uploaded_by'
+        );
+    }
+
+    public function transactionTypeField(): BelongsTo
+    {
+        return $this->belongsTo(
+            TransactionTypeField::class,
+            'transaction_type_field_id'
+        );
     }
 }

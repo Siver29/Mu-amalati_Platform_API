@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Transaction;
 
+use App\Models\TransactionTypeField;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreTransactionAttachmentRequest extends FormRequest
 {
@@ -22,8 +24,32 @@ class StoreTransactionAttachmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'attachments' => ['required', 'array', 'max:5'],
-            'attachments.*' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:5120'],
+            'attachments' => [
+                'required',
+                'array',
+                'max:5',
+            ],
+
+            'attachments.*' => [
+                'required',
+                'file',
+                'mimes:pdf,jpg,jpeg,png,doc,docx',
+                'max:5120',
+            ],
+
+            'field_ids' => [
+                'nullable',
+                'array',
+            ],
+
+            'field_ids.*' => [
+                'nullable',
+                'integer',
+                Rule::exists(
+                    'transaction_type_fields',
+                    'id'
+                ),
+            ],
         ];
     }
 }

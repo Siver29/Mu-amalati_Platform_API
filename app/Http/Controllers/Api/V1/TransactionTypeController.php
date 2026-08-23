@@ -7,7 +7,7 @@ use App\Http\Resources\TransactionTypeResource;
 use App\Http\Responses\ApiResponse;
 use App\Models\TransactionType;
 use Illuminate\Http\JsonResponse;
-
+use App\Http\Resources\TransactionTypeFieldResource;
 class TransactionTypeController extends Controller
 {
     use ApiResponse;
@@ -38,4 +38,24 @@ class TransactionTypeController extends Controller
 
         return $this->success(new TransactionTypeResource($transactionType));
     }
+
+    public function fields(TransactionType $transactionType): JsonResponse
+{
+    if (! $transactionType->is_active) {
+        return $this->notFound(
+            'Transaction type not found.'
+        );
+    }
+
+    $fields = $transactionType
+        ->fields()
+        ->orderBy('field_order')
+        ->get();
+
+    return $this->success(
+        \App\Http\Resources\TransactionTypeFieldResource::collection(
+            $fields
+        )
+    );
+}
 }
