@@ -71,37 +71,63 @@ class User extends Authenticatable
 
     public function department(): BelongsTo
     {
-        return $this->belongsTo(Department::class);
+        return $this->belongsTo(
+            Department::class
+        );
     }
 
     public function createdTransactions(): HasMany
     {
-        return $this->hasMany(Transaction::class, 'created_by');
+        return $this->hasMany(
+            Transaction::class,
+            'created_by'
+        );
     }
 
     public function reviewedWorkflowSteps(): HasMany
     {
-        return $this->hasMany(TransactionWorkflowStep::class, 'reviewed_by');
+        return $this->hasMany(
+            TransactionWorkflowStep::class,
+            'reviewed_by'
+        );
     }
 
     public function performedHistoryActions(): HasMany
     {
-        return $this->hasMany(TransactionHistory::class, 'performed_by');
+        return $this->hasMany(
+            TransactionHistory::class,
+            'performed_by'
+        );
     }
 
     public function uploadedAttachments(): HasMany
     {
-        return $this->hasMany(TransactionAttachment::class, 'uploaded_by');
+        return $this->hasMany(
+            TransactionAttachment::class,
+            'uploaded_by'
+        );
     }
 
     public function notifications(): HasMany
     {
-        return $this->hasMany(Notification::class);
+        return $this->hasMany(
+            Notification::class
+        );
+    }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(
+            Attendance::class
+        );
     }
 
     public function managedDepartments(): HasMany
     {
-        return $this->hasMany(Department::class, 'manager_id');
+        return $this->hasMany(
+            Department::class,
+            'manager_id'
+        );
     }
 
     /*
@@ -131,12 +157,92 @@ class User extends Authenticatable
     }
 
     /**
-     * The department ids managed by this user (empty for non-managers).
+     * The department ids managed by this user.
      *
      * @return array<int, int>
      */
     public function managedDepartmentIds(): array
     {
-        return $this->managedDepartments()->pluck('id')->all();
+        return $this->managedDepartments()
+            ->pluck('id')
+            ->all();
+    }
+
+    /**
+     * Get the user's attendance for today.
+     */
+    public function todayAttendance(): ?Attendance
+    {
+        return $this->attendances()
+            ->whereDate(
+                'date',
+                now()->toDateString()
+            )
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * Determine whether the user is currently on approved leave.
+     */
+    public function isOnLeave(): bool
+    {
+        return $this->createdTransactions()
+            ->whereHas(
+                'transactionType',
+                function ($query) {
+                    $query->where(
+                        'name_en',
+                        'Leave Request'
+                    );
+                }
+            )
+            ->where(
+                'status',
+                'approved'
+            )
+            ->whereDate(
+                'start_date',
+                '<=',
+                now()->toDateString()
+            )
+            ->whereDate(
+                'end_date',
+                '>=',
+                now()->toDateString()
+            )
+            ->exists();
+    }
+
+    /**
+     * Get the current work status.
+     *
+     * Possible values:
+     * - on_leave
+     * - working
+     * - inactive
+     */
+    public function workStatus(): string
+    {
+        if ($this->isOnLeave()) {
+            return 'on_leave';
+        }
+
+        if (! $this->isActive()) {
+            return 'inactive';
+        }
+
+        $attendance =
+            $this->todayAttendance();
+
+        if (
+            $attendance &&
+            $attendance->check_in_at &&
+            ! $attendance->check_out_at
+        ) {
+            return 'working';
+        }
+
+        return 'inactive';
     }
 }

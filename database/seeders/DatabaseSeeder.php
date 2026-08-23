@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
             DepartmentSeeder::class,
             UserSeeder::class,
             TransactionTypeSeeder::class,
-            TransactionSeeder::class,
+            // TransactionSeeder::class,
         ]);
     }
 }

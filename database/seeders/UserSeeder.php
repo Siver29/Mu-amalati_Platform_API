@@ -23,10 +23,10 @@ class UserSeeder extends Seeder
         $operations = Department::where('name', 'Operations')->first();
 
         // Admin
-        $admin = User::updateOrCreate(
-            ['email' => 'admin@company.test'],
+        User::updateOrCreate(
+            ['email' => 'maya.admin@company.test'],
             [
-                'name' => 'System Admin',
+                'name' => 'Maya Admin',
                 'password' => Hash::make('password'),
                 'role' => UserRole::Admin,
                 'status' => UserStatus::Active,
@@ -36,11 +36,31 @@ class UserSeeder extends Seeder
 
         // Managers
         $managers = [
-            ['email' => 'hr.manager@company.test', 'name' => 'HR Manager', 'department' => $hr],
-            ['email' => 'finance.manager@company.test', 'name' => 'Finance Manager', 'department' => $finance],
-            ['email' => 'it.manager@company.test', 'name' => 'IT Manager', 'department' => $it],
-            ['email' => 'procurement.manager@company.test', 'name' => 'Procurement Manager', 'department' => $procurement],
-            ['email' => 'operations.manager@company.test', 'name' => 'Operations Manager', 'department' => $operations],
+            [
+                'email' => 'sara.hr@company.test',
+                'name' => 'Sara Khaled',
+                'department' => $hr,
+            ],
+            [
+                'email' => 'omar.finance@company.test',
+                'name' => 'Omar Hassan',
+                'department' => $finance,
+            ],
+            [
+                'email' => 'lina.it@company.test',
+                'name' => 'Lina Ali',
+                'department' => $it,
+            ],
+            [
+                'email' => 'rania.procurement@company.test',
+                'name' => 'Rania Ahmad',
+                'department' => $procurement,
+            ],
+            [
+                'email' => 'yousef.operations@company.test',
+                'name' => 'Yousef Sami',
+                'department' => $operations,
+            ],
         ];
 
         foreach ($managers as $m) {
@@ -56,16 +76,38 @@ class UserSeeder extends Seeder
             );
 
             if ($m['department']) {
-                $m['department']->update(['manager_id' => $manager->id]);
+                $m['department']->update([
+                    'manager_id' => $manager->id,
+                ]);
             }
         }
 
         // Employees
         $employees = [
-            ['email' => 'employee@company.test', 'name' => 'Ahmad Mohammad', 'department' => $hr, 'job_title' => 'HR Specialist'],
-            ['email' => 'hr.employee@company.test', 'name' => 'Sara Ali', 'department' => $hr, 'job_title' => 'HR Coordinator'],
-            ['email' => 'finance.employee@company.test', 'name' => 'Omar Hassan', 'department' => $finance, 'job_title' => 'Accountant'],
-            ['email' => 'it.employee@company.test', 'name' => 'Layla Ibrahim', 'department' => $it, 'job_title' => 'Support Engineer'],
+            [
+                'email' => 'haya@company.test',
+                'name' => 'Haya Ahmad',
+                'department' => $hr,
+                'job_title' => 'HR Specialist',
+            ],
+            [
+                'email' => 'rana.hr@company.test',
+                'name' => 'Rana Ali',
+                'department' => $hr,
+                'job_title' => 'HR Coordinator',
+            ],
+            [
+                'email' => 'khaled.finance@company.test',
+                'name' => 'Khaled Hassan',
+                'department' => $finance,
+                'job_title' => 'Accountant',
+            ],
+            [
+                'email' => 'noor.it@company.test',
+                'name' => 'Noor Ibrahim',
+                'department' => $it,
+                'job_title' => 'Support Engineer',
+            ],
         ];
 
         foreach ($employees as $e) {
