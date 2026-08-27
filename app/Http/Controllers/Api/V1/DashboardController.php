@@ -165,155 +165,324 @@ class DashboardController extends Controller
         ]);
     }
 
-    /**
-     * Manager dashboard.
+
+/**
+ * Manager dashboard.
+ */
+public function manager(Request $request): JsonResponse
+{
+    $user = $request->user();
+
+    $departmentIds =
+        $user->managedDepartmentIds();
+
+    /*
+     * --------------------------------------------------
+     * Managed departments
+     * --------------------------------------------------
      */
-    public function manager(Request $request): JsonResponse
-    {
-        $user = $request->user();
 
-        $departmentIds =
-            $user->managedDepartmentIds();
+    $departments =
+        Department::whereIn(
+            'id',
+            $departmentIds
+        )
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+            ]);
 
-        $pendingQuery =
-            Transaction::where(
-                'status',
-                TransactionStatus::Pending
+    /*
+     * --------------------------------------------------
+     * Pending transactions
+     * --------------------------------------------------
+     */
+
+    $pendingQuery =
+        Transaction::where(
+            'status',
+            TransactionStatus::Pending
+        )
+            ->whereIn(
+                'current_department_id',
+                $departmentIds
+            );
+
+    /*
+     * --------------------------------------------------
+     * Today's statistics
+     * --------------------------------------------------
+     */
+
+    $today =
+        now()->toDateString();
+
+    $pendingCount =
+        (clone $pendingQuery)->count();
+
+    $approvedToday =
+        Transaction::where(
+            'status',
+            TransactionStatus::Approved
+        )
+            ->whereIn(
+                'source_department_id',
+                $departmentIds
             )
-                ->whereIn(
-                    'current_department_id',
-                    $departmentIds
-                );
-
-        $today =
-            now()->toDateString();
-
-        $pendingCount =
-            (clone $pendingQuery)->count();
-
-        $approvedToday =
-            Transaction::where(
-                'status',
-                TransactionStatus::Approved
+            ->whereDate(
+                'approved_at',
+                $today
             )
-                ->whereIn(
-                    'source_department_id',
-                    $departmentIds
-                )
-                ->whereDate(
-                    'approved_at',
-                    $today
-                )
-                ->count();
+            ->count();
 
-        $returnedToday =
-            Transaction::where(
-                'status',
-                TransactionStatus::Returned
+    $returnedToday =
+        Transaction::where(
+            'status',
+            TransactionStatus::Returned
+        )
+            ->whereIn(
+                'source_department_id',
+                $departmentIds
             )
-                ->whereIn(
-                    'source_department_id',
-                    $departmentIds
-                )
-                ->whereDate(
-                    'returned_at',
-                    $today
-                )
-                ->count();
-
-        $rejectedToday =
-            Transaction::where(
-                'status',
-                TransactionStatus::Rejected
+            ->whereDate(
+                'returned_at',
+                $today
             )
-                ->whereIn(
-                    'source_department_id',
-                    $departmentIds
-                )
-                ->whereDate(
-                    'rejected_at',
-                    $today
-                )
-                ->count();
+            ->count();
 
-        $pendingFive =
-            (clone $pendingQuery)
-                ->with([
-                    'creator',
-                    'transactionType',
-                ])
-                ->orderByRaw(
-                    "CASE priority
-                        WHEN 'high' THEN 0
-                        WHEN 'medium' THEN 1
-                        ELSE 2
-                    END"
-                )
-                ->orderBy(
-                    'created_at',
-                    'desc'
-                )
-                ->limit(5)
-                ->get();
+    $rejectedToday =
+        Transaction::where(
+            'status',
+            TransactionStatus::Rejected
+        )
+            ->whereIn(
+                'source_department_id',
+                $departmentIds
+            )
+            ->whereDate(
+                'rejected_at',
+                $today
+            )
+            ->count();
 
-        return $this->success([
-            'manager' => [
-                'id' =>
-                    $user->id,
+    /*
+     * --------------------------------------------------
+     * Pending transactions - first five
+     * --------------------------------------------------
+     */
 
-                'name' =>
-                    $user->name,
+    $pendingFive =
+        (clone $pendingQuery)
+            ->with([
+                'creator',
+                'transactionType',
+            ])
+            ->orderByRaw(
+                "CASE priority
+                    WHEN 'high' THEN 0
+                    WHEN 'medium' THEN 1
+                    ELSE 2
+                END"
+            )
+            ->orderBy(
+                'created_at',
+                'desc'
+            )
+            ->limit(5)
+            ->get();
 
-                'email' =>
-                    $user->email,
-            ],
+    /*
+     * --------------------------------------------------
+     * Department summaries
+     * --------------------------------------------------
+     */
 
-            'managed_departments' =>
-                Department::whereIn(
-                    'id',
-                    $departmentIds
-                )->get([
-                    'id',
-                    'name',
-                ]),
+    $departmentSummaries =
+        $departments
+            ->map(
+                function ($department) {
 
-            'pending_approval_count' =>
-                $pendingCount,
+                    /*
+                     * Get all users assigned to this department.
+                     */
+                    $departmentUsers =
+                        User::where(
+                            'department_id',
+                            $department->id
+                        )->get();
 
-            'approved_today_count' =>
-                $approvedToday,
+                    /*
+                     * Employees only.
+                     *
+                     * We filter the role in PHP instead of
+                     * relying on the database query so the
+                     * enum/cast value is handled consistently.
+                     */
+                    $employees =
+                        $departmentUsers->filter(
+                            function (User $departmentUser) {
+                                return $departmentUser->role?->value ===
+                                    'employee';
+                            }
+                        );
 
-            'returned_today_count' =>
-                $returnedToday,
+                    $working =
+                        $employees
+                            ->filter(
+                                fn (User $employee) =>
+                                    $employee->workStatus() ===
+                                    'working'
+                            )
+                            ->count();
 
-            'rejected_today_count' =>
-                $rejectedToday,
+                    $onLeave =
+                        $employees
+                            ->filter(
+                                fn (User $employee) =>
+                                    $employee->workStatus() ===
+                                    'on_leave'
+                            )
+                            ->count();
 
-            'pending_transactions' =>
-                $pendingFive->map(
-                    fn ($t) => [
-                        'id' =>
-                            $t->id,
+                    $notWorking =
+                        $employees->count() -
+                        $working -
+                        $onLeave;
 
-                        'transaction_number' =>
-                            $t->transaction_number,
+                    /*
+                     * Count transactions belonging to
+                     * this department.
+                     */
+                    $transactionCount =
+                        Transaction::where(
+                            'source_department_id',
+                            $department->id
+                        )->count();
 
-                        'title' =>
-                            $t->title,
+                    return [
+                        'department' => [
+                            'id' =>
+                                $department->id,
 
-                        'priority' =>
-                            $t->priority->value,
+                            'name' =>
+                                $department->name,
+                        ],
 
-                        'creator' =>
-                            $t->creator?->name,
+                        'employee_count' =>
+                            $employees->count(),
 
-                        'transaction_type' =>
-                            $t->transactionType?->name_en,
-                    ]
-                ),
-        ]);
-    }
+                        'working' =>
+                            $working,
 
+                        'on_leave' =>
+                            $onLeave,
+
+                        'not_working' =>
+                            max(
+                                0,
+                                $notWorking
+                            ),
+
+                        'transaction_count' =>
+                            $transactionCount,
+                    ];
+                }
+            )
+            ->values();
+
+    /*
+     * --------------------------------------------------
+     * Department activity
+     * --------------------------------------------------
+     */
+
+    $departmentActivity =
+        $departmentSummaries
+            ->map(
+                fn ($summary) => [
+                    'department' =>
+                        $summary[
+                            'department'
+                        ]['name'],
+
+                    'transactions' =>
+                        $summary[
+                            'transaction_count'
+                        ],
+                ]
+            )
+            ->values();
+
+    /*
+     * --------------------------------------------------
+     * Response
+     * --------------------------------------------------
+     */
+
+    return $this->success([
+        'manager' => [
+            'id' =>
+                $user->id,
+
+            'name' =>
+                $user->name,
+
+            'email' =>
+                $user->email,
+
+            'job_title' =>
+                $user->job_title,
+        ],
+
+        'managed_departments' =>
+            $departments,
+
+        'pending_approval_count' =>
+            $pendingCount,
+
+        'approved_today_count' =>
+            $approvedToday,
+
+        'returned_today_count' =>
+            $returnedToday,
+
+        'rejected_today_count' =>
+            $rejectedToday,
+
+        'pending_transactions' =>
+            $pendingFive->map(
+                fn ($t) => [
+                    'id' =>
+                        $t->id,
+
+                    'transaction_number' =>
+                        $t->transaction_number,
+
+                    'title' =>
+                        $t->title,
+
+                    'priority' =>
+                        $t->priority->value,
+
+                    'creator' =>
+                        $t->creator?->name,
+
+                    'transaction_type' =>
+                        $t->transactionType?->name_en,
+
+                    'created_at' =>
+                        $t->created_at?->toISOString(),
+                ]
+            ),
+
+        'department_summaries' =>
+            $departmentSummaries,
+
+        'department_activity' =>
+            $departmentActivity,
+    ]);
+}
     /**
      * Admin dashboard.
      */
