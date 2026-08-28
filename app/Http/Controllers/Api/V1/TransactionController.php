@@ -119,6 +119,38 @@ class TransactionController extends Controller
 
         $user = $request->user();
 
+        /*
+         * Employee and manager must be checked in
+         * before they can create a transaction.
+         *
+         * Admin is intentionally excluded because
+         * admins are not allowed to create transactions.
+         */
+        if (
+            $user->isEmployee() ||
+            $user->isManager()
+        ) {
+            $attendance =
+                $user->todayAttendance();
+
+            /*
+             * Reject when:
+             * - there is no attendance record
+             * - there is no check-in
+             * - the user already checked out
+             */
+            if (
+                ! $attendance ||
+                ! $attendance->check_in_at ||
+                $attendance->check_out_at
+            ) {
+                return $this->error(
+                    'You must check in before creating a transaction.',
+                    422
+                );
+            }
+        }
+
         $type = TransactionType::findOrFail(
             $request->transaction_type_id
         );
@@ -332,6 +364,32 @@ class TransactionController extends Controller
         );
 
         $user = $request->user();
+
+        /*
+         * User must be checked in to edit
+         * their transaction as well.
+         *
+         * This applies only to employees
+         * and managers.
+         */
+        if (
+            $user->isEmployee() ||
+            $user->isManager()
+        ) {
+            $attendance =
+                $user->todayAttendance();
+
+            if (
+                ! $attendance ||
+                ! $attendance->check_in_at ||
+                $attendance->check_out_at
+            ) {
+                return $this->error(
+                    'You must check in before editing a transaction.',
+                    422
+                );
+            }
+        }
 
         $validated = $request->validated();
 
@@ -682,6 +740,29 @@ class TransactionController extends Controller
 
         $user = $request->user();
 
+        /*
+         * User must be checked in to manage
+         * transaction attachments.
+         */
+        if (
+            $user->isEmployee() ||
+            $user->isManager()
+        ) {
+            $attendance =
+                $user->todayAttendance();
+
+            if (
+                ! $attendance ||
+                ! $attendance->check_in_at ||
+                $attendance->check_out_at
+            ) {
+                return $this->error(
+                    'You must check in before managing transaction attachments.',
+                    422
+                );
+            }
+        }
+
         $existing = $transaction
             ->attachments()
             ->count();
@@ -895,17 +976,48 @@ class TransactionController extends Controller
         $user
     ): void {
         if (
-            ! $request->hasFile(
-                'attachments'
-            )
+            ! $request->hasFile('attachments')
         ) {
             return;
         }
 
+        $fieldIds = $request->input(
+            'field_ids',
+            []
+        );
+
         foreach (
-            $request->file('attachments')
-            as $file
+            $request->file('attachments') as $index => $file
         ) {
+            $fieldId =
+                $fieldIds[$index] ?? null;
+
+            /*
+             * If the uploaded file belongs to a
+             * Dynamic File Field, verify that the field
+             * belongs to this transaction type and is
+             * actually a file field.
+             */
+            if ($fieldId) {
+                $field = TransactionTypeField::query()
+                    ->whereKey($fieldId)
+                    ->where(
+                        'transaction_type_id',
+                        $transaction->transaction_type_id
+                    )
+                    ->where(
+                        'field_type',
+                        'file'
+                    )
+                    ->first();
+
+                if (! $field) {
+                    throw new RuntimeException(
+                        'The selected file field does not belong to this transaction type.'
+                    );
+                }
+            }
+
             $path =
                 $file->storeAs(
                     'transactions',
@@ -917,12 +1029,8 @@ class TransactionController extends Controller
                 'transaction_id' =>
                     $transaction->id,
 
-                /*
-                 * Normal attachments are not linked
-                 * to a Dynamic File Field.
-                 */
                 'transaction_type_field_id' =>
-                    null,
+                    $fieldId,
 
                 'uploaded_by' =>
                     $user->id,

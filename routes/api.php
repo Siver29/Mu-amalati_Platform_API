@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\TransactionTypeController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\Admin\AdminTransactionTypeFieldController;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\Api\V1\Admin\AdminAttendanceController;
 Route::prefix('v1')->group(function () {
 
     /*
@@ -147,7 +148,11 @@ Route::post(
         Route::delete('/departments/{department}', [AdminDepartmentController::class, 'destroy']);
         Route::post('/departments/{department}/activate', [AdminDepartmentController::class, 'activate']);
         Route::post('/departments/{department}/deactivate', [AdminDepartmentController::class, 'deactivate']);
-
+//attendance
+        Route::get(
+    '/attendance/report',
+    [AdminAttendanceController::class, 'report']
+);
         // Transaction types
         Route::get('/transaction-types', [AdminTransactionTypeController::class, 'index']);
         Route::post('/transaction-types', [AdminTransactionTypeController::class, 'store']);

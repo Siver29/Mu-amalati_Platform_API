@@ -25,13 +25,17 @@ class TransactionResource extends JsonResource
 
             'description' =>
                 $this->description,
+'priority' =>
+    $this->priority->value,
 
-            'priority' =>
-                $this->priority->value,
+'status' =>
+    $this->status->value,
 
-            'status' =>
-                $this->status->value,
+'start_date' =>
+    $this->start_date,
 
+'end_date' =>
+    $this->end_date,
             'creator' => $this->whenLoaded(
                 'creator',
                 fn () => $this->creator
