@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\TransactionHistoryAction;
 use App\Enums\TransactionStatus;
 use App\Enums\WorkflowStepStatus;
+use App\Models\Attendance;
 use App\Models\Department;
 use App\Models\Notification;
 use App\Models\Transaction;
@@ -20,16 +21,33 @@ class WorkflowTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Set up a manager, employee, and a pending transaction on the manager's department.
+     * Set up a manager, employee, and a pending transaction
+     * on the manager's department.
      */
     protected function makePendingTransaction(array $options = []): array
     {
         $department = Department::factory()->create();
-        $manager = User::factory()->manager($department)->create();
 
-        $department->update(['manager_id' => $manager->id]);
+        $manager = User::factory()
+            ->manager($department)
+            ->create();
 
-        $employee = User::factory()->employee($department)->create();
+        $department->update([
+            'manager_id' => $manager->id,
+        ]);
+
+        // Manager must be checked in and working
+        // because transaction review requires attendance.
+        Attendance::create([
+            'user_id' => $manager->id,
+            'date' => now()->toDateString(),
+            'check_in_at' => now(),
+            'check_out_at' => null,
+        ]);
+
+        $employee = User::factory()
+            ->employee($department)
+            ->create();
 
         $type = TransactionType::factory()->create([
             'destination_department_id' => $department->id,
@@ -43,24 +61,37 @@ class WorkflowTest extends TestCase
             'is_final' => true,
         ]);
 
-        $transaction = Transaction::factory()->pending()->create([
-            'created_by' => $employee->id,
-            'transaction_type_id' => $type->id,
-            'source_department_id' => $department->id,
-            'destination_department_id' => $department->id,
-            'current_department_id' => $department->id,
+        $transaction = Transaction::factory()
+            ->pending()
+            ->create([
+                'created_by' => $employee->id,
+                'transaction_type_id' => $type->id,
+                'source_department_id' => $department->id,
+                'destination_department_id' => $department->id,
+                'current_department_id' => $department->id,
+            ]);
+
+        $step = TransactionWorkflowStep::factory()
+            ->pending()
+            ->create([
+                'transaction_id' => $transaction->id,
+                'department_id' => $department->id,
+                'step_order' => 1,
+                'name' => 'Direct Manager Review',
+            ]);
+
+        $transaction->update([
+            'current_workflow_step_id' => $step->id,
         ]);
 
-        $step = TransactionWorkflowStep::factory()->pending()->create([
-            'transaction_id' => $transaction->id,
-            'department_id' => $department->id,
-            'step_order' => 1,
-            'name' => 'Direct Manager Review',
-        ]);
-
-        $transaction->update(['current_workflow_step_id' => $step->id]);
-
-        return compact('department', 'manager', 'employee', 'type', 'transaction', 'step');
+        return compact(
+            'department',
+            'manager',
+            'employee',
+            'type',
+            'transaction',
+            'step'
+        );
     }
 
     /*
@@ -73,28 +104,56 @@ class WorkflowTest extends TestCase
     {
         $ctx = $this->makePendingTransaction();
 
-        $response = $this->actingAs($ctx['manager'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/approve", [
+        $response = $this->actingAs(
+            $ctx['manager'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/approve",
+            [
                 'comment' => 'Approved.',
-            ]);
+            ]
+        );
 
         $response->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->assertDatabaseHas('transaction_workflow_steps', [
-            'id' => $ctx['step']->id,
-            'status' => WorkflowStepStatus::Approved->value,
-        ]);
+        $this->assertDatabaseHas(
+            'transaction_workflow_steps',
+            [
+                'id' => $ctx['step']->id,
+                'status' => WorkflowStepStatus::Approved->value,
+            ]
+        );
     }
 
     public function test_approval_activates_the_next_step(): void
     {
         $department = Department::factory()->create();
-        $manager = User::factory()->manager($department)->create();
-        $department->update(['manager_id' => $manager->id]);
-        $employee = User::factory()->employee($department)->create();
 
-        $type = TransactionType::factory()->create(['destination_department_id' => $department->id]);
+        $manager = User::factory()
+            ->manager($department)
+            ->create();
+
+        $department->update([
+            'manager_id' => $manager->id,
+        ]);
+
+        // Manager must be checked in and working
+        // to approve the transaction.
+        Attendance::create([
+            'user_id' => $manager->id,
+            'date' => now()->toDateString(),
+            'check_in_at' => now(),
+            'check_out_at' => null,
+        ]);
+
+        $employee = User::factory()
+            ->employee($department)
+            ->create();
+
+        $type = TransactionType::factory()->create([
+            'destination_department_id' => $department->id,
+        ]);
 
         TransactionTypeWorkflowStep::factory()->create([
             'transaction_type_id' => $type->id,
@@ -111,86 +170,126 @@ class WorkflowTest extends TestCase
             'is_final' => true,
         ]);
 
-        $transaction = Transaction::factory()->pending()->create([
-            'created_by' => $employee->id,
-            'transaction_type_id' => $type->id,
-            'source_department_id' => $department->id,
-            'destination_department_id' => $department->id,
-            'current_department_id' => $department->id,
+        $transaction = Transaction::factory()
+            ->pending()
+            ->create([
+                'created_by' => $employee->id,
+                'transaction_type_id' => $type->id,
+                'source_department_id' => $department->id,
+                'destination_department_id' => $department->id,
+                'current_department_id' => $department->id,
+            ]);
+
+        $step1 = TransactionWorkflowStep::factory()
+            ->pending()
+            ->create([
+                'transaction_id' => $transaction->id,
+                'department_id' => $department->id,
+                'step_order' => 1,
+                'name' => 'Manager Review',
+            ]);
+
+        $step2 = TransactionWorkflowStep::factory()
+            ->create([
+                'transaction_id' => $transaction->id,
+                'department_id' => $department->id,
+                'step_order' => 2,
+                'name' => 'Finance Review',
+                'status' => WorkflowStepStatus::Waiting,
+            ]);
+
+        $transaction->update([
+            'current_workflow_step_id' => $step1->id,
         ]);
 
-        $step1 = TransactionWorkflowStep::factory()->pending()->create([
-            'transaction_id' => $transaction->id,
-            'department_id' => $department->id,
-            'step_order' => 1,
-            'name' => 'Manager Review',
-        ]);
-
-        $step2 = TransactionWorkflowStep::factory()->create([
-            'transaction_id' => $transaction->id,
-            'department_id' => $department->id,
-            'step_order' => 2,
-            'name' => 'Finance Review',
-            'status' => WorkflowStepStatus::Waiting,
-        ]);
-
-        $transaction->update(['current_workflow_step_id' => $step1->id]);
-
-        $this->actingAs($manager, 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$transaction->id}/approve", [
+        $response = $this->actingAs(
+            $manager,
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$transaction->id}/approve",
+            [
                 'comment' => 'Approved.',
-            ])
-            ->assertOk();
+            ]
+        );
 
-        $this->assertDatabaseHas('transaction_workflow_steps', [
-            'id' => $step1->id,
-            'status' => WorkflowStepStatus::Approved->value,
-        ]);
+        $response->assertOk();
 
-        $this->assertDatabaseHas('transaction_workflow_steps', [
-            'id' => $step2->id,
-            'status' => WorkflowStepStatus::Pending->value,
-        ]);
+        $this->assertDatabaseHas(
+            'transaction_workflow_steps',
+            [
+                'id' => $step1->id,
+                'status' => WorkflowStepStatus::Approved->value,
+            ]
+        );
 
-        $this->assertDatabaseHas('transactions', [
-            'id' => $transaction->id,
-            'status' => TransactionStatus::Pending->value,
-            'current_workflow_step_id' => $step2->id,
-        ]);
+        $this->assertDatabaseHas(
+            'transaction_workflow_steps',
+            [
+                'id' => $step2->id,
+                'status' => WorkflowStepStatus::Pending->value,
+            ]
+        );
+
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $transaction->id,
+                'status' => TransactionStatus::Pending->value,
+                'current_workflow_step_id' => $step2->id,
+            ]
+        );
     }
 
     public function test_final_approval_changes_status_to_approved(): void
     {
         $ctx = $this->makePendingTransaction();
 
-        $this->actingAs($ctx['manager'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/approve", [
+        $this->actingAs(
+            $ctx['manager'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/approve",
+            [
                 'comment' => 'Approved.',
-            ])
-            ->assertOk();
+            ]
+        )->assertOk();
 
-        $this->assertDatabaseHas('transactions', [
-            'id' => $ctx['transaction']->id,
-            'status' => TransactionStatus::Approved->value,
-        ]);
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $ctx['transaction']->id,
+                'status' => TransactionStatus::Approved->value,
+            ]
+        );
 
-        $this->assertDatabaseHas('transaction_histories', [
-            'transaction_id' => $ctx['transaction']->id,
-            'action' => TransactionHistoryAction::FullyApproved->value,
-        ]);
+        $this->assertDatabaseHas(
+            'transaction_histories',
+            [
+                'transaction_id' => $ctx['transaction']->id,
+                'action' => TransactionHistoryAction::FullyApproved->value,
+            ]
+        );
     }
 
     public function test_unauthorized_manager_cannot_approve_a_step(): void
     {
         $otherDept = Department::factory()->create();
-        $unauthorizedManager = User::factory()->manager($otherDept)->create();
+
+        $unauthorizedManager = User::factory()
+            ->manager($otherDept)
+            ->create();
 
         $ctx = $this->makePendingTransaction();
 
-        $response = $this->actingAs($unauthorizedManager, 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/approve", [
+        $response = $this->actingAs(
+            $unauthorizedManager,
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/approve",
+            [
                 'comment' => 'Approved.',
-            ]);
+            ]
+        );
 
         $response->assertForbidden();
     }
@@ -199,30 +298,45 @@ class WorkflowTest extends TestCase
     {
         $ctx = $this->makePendingTransaction();
 
-        $response = $this->actingAs($ctx['employee'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/approve", [
+        $response = $this->actingAs(
+            $ctx['employee'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/approve",
+            [
                 'comment' => 'Approved.',
-            ]);
+            ]
+        );
 
         $response->assertForbidden();
     }
 
-    public function test_manager_cannot_review_their_own_transaction(): void
-    {
-        $department = Department::factory()->create();
-        $manager = User::factory()->manager($department)->create();
-        $department->update(['manager_id' => $manager->id]);
+   public function test_manager_cannot_review_their_own_transaction(): void
+{
+    $department = Department::factory()->create();
 
-        $type = TransactionType::factory()->create(['destination_department_id' => $department->id]);
+    $manager = User::factory()
+        ->manager($department)
+        ->create();
 
-        TransactionTypeWorkflowStep::factory()->create([
-            'transaction_type_id' => $type->id,
-            'department_id' => $department->id,
-            'step_order' => 1,
-            'is_final' => true,
-        ]);
+    $department->update([
+        'manager_id' => $manager->id,
+    ]);
 
-        $transaction = Transaction::factory()->pending()->create([
+    $type = TransactionType::factory()->create([
+        'destination_department_id' => $department->id,
+    ]);
+
+    TransactionTypeWorkflowStep::factory()->create([
+        'transaction_type_id' => $type->id,
+        'department_id' => $department->id,
+        'step_order' => 1,
+        'is_final' => true,
+    ]);
+
+    $transaction = Transaction::factory()
+        ->pending()
+        ->create([
             'created_by' => $manager->id,
             'transaction_type_id' => $type->id,
             'source_department_id' => $department->id,
@@ -230,31 +344,55 @@ class WorkflowTest extends TestCase
             'current_department_id' => $department->id,
         ]);
 
-        $step = TransactionWorkflowStep::factory()->pending()->create([
+    $step = TransactionWorkflowStep::factory()
+        ->pending()
+        ->create([
             'transaction_id' => $transaction->id,
             'department_id' => $department->id,
         ]);
 
-        $transaction->update(['current_workflow_step_id' => $step->id]);
+    $transaction->update([
+        'current_workflow_step_id' => $step->id,
+    ]);
 
-        $response = $this->actingAs($manager, 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$transaction->id}/approve", ['comment' => 'Approved.']);
+    $response = $this->actingAs(
+        $manager,
+        'sanctum'
+    )->postJson(
+        "/api/v1/manager/transactions/{$transaction->id}/approve",
+        [
+            'comment' => 'Approved.',
+        ]
+    );
 
-        $response->assertStatus(409);
-    }
+    $response->assertStatus(409);
+}
 
     public function test_manager_cannot_approve_the_same_step_twice(): void
     {
         $ctx = $this->makePendingTransaction();
 
-        $this->actingAs($ctx['manager'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/approve", ['comment' => 'First.'])
-            ->assertOk();
+        $this->actingAs(
+            $ctx['manager'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/approve",
+            [
+                'comment' => 'First.',
+            ]
+        )->assertOk();
 
-        $response = $this->actingAs($ctx['manager'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/approve", ['comment' => 'Second.']);
+        $response = $this->actingAs(
+            $ctx['manager'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/approve",
+            [
+                'comment' => 'Second.',
+            ]
+        );
 
-        $response->assertStatus(409);
+        $response->assertForbidden();
     }
 
     /*
@@ -267,8 +405,13 @@ class WorkflowTest extends TestCase
     {
         $ctx = $this->makePendingTransaction();
 
-        $response = $this->actingAs($ctx['manager'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/return", []);
+        $response = $this->actingAs(
+            $ctx['manager'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/return",
+            []
+        );
 
         $response->assertUnprocessable()
             ->assertJsonValidationErrors('comment');
@@ -278,21 +421,31 @@ class WorkflowTest extends TestCase
     {
         $ctx = $this->makePendingTransaction();
 
-        $this->actingAs($ctx['manager'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/return", [
+        $this->actingAs(
+            $ctx['manager'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/return",
+            [
                 'comment' => 'Please attach the quotation.',
-            ])
-            ->assertOk();
+            ]
+        )->assertOk();
 
-        $this->assertDatabaseHas('transactions', [
-            'id' => $ctx['transaction']->id,
-            'status' => TransactionStatus::Returned->value,
-        ]);
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $ctx['transaction']->id,
+                'status' => TransactionStatus::Returned->value,
+            ]
+        );
 
-        $this->assertDatabaseHas('transaction_workflow_steps', [
-            'id' => $ctx['step']->id,
-            'status' => WorkflowStepStatus::Returned->value,
-        ]);
+        $this->assertDatabaseHas(
+            'transaction_workflow_steps',
+            [
+                'id' => $ctx['step']->id,
+                'status' => WorkflowStepStatus::Returned->value,
+            ]
+        );
     }
 
     /*
@@ -305,8 +458,13 @@ class WorkflowTest extends TestCase
     {
         $ctx = $this->makePendingTransaction();
 
-        $response = $this->actingAs($ctx['manager'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/reject", []);
+        $response = $this->actingAs(
+            $ctx['manager'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/reject",
+            []
+        );
 
         $response->assertUnprocessable()
             ->assertJsonValidationErrors('comment');
@@ -316,39 +474,61 @@ class WorkflowTest extends TestCase
     {
         $ctx = $this->makePendingTransaction();
 
-        $this->actingAs($ctx['manager'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/reject", [
+        $this->actingAs(
+            $ctx['manager'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/reject",
+            [
                 'comment' => 'Exceeds budget.',
-            ])
-            ->assertOk();
+            ]
+        )->assertOk();
 
-        $this->assertDatabaseHas('transactions', [
-            'id' => $ctx['transaction']->id,
-            'status' => TransactionStatus::Rejected->value,
-        ]);
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $ctx['transaction']->id,
+                'status' => TransactionStatus::Rejected->value,
+            ]
+        );
 
-        $this->assertDatabaseHas('transaction_workflow_steps', [
-            'id' => $ctx['step']->id,
-            'status' => WorkflowStepStatus::Rejected->value,
-        ]);
+        $this->assertDatabaseHas(
+            'transaction_workflow_steps',
+            [
+                'id' => $ctx['step']->id,
+                'status' => WorkflowStepStatus::Rejected->value,
+            ]
+        );
     }
 
-    public function test_invalid_workflow_action_returns_409(): void
+    public function test_cannot_reject_already_approved_transaction(): void
     {
         $ctx = $this->makePendingTransaction();
 
         // Approve once to move past pending.
-        $this->actingAs($ctx['manager'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/approve", ['comment' => 'Approved.'])
-            ->assertOk();
+        $this->actingAs(
+            $ctx['manager'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/approve",
+            [
+                'comment' => 'Approved.',
+            ]
+        )->assertOk();
 
-        // Now reject an already-approved transaction -> conflict.
-        $response = $this->actingAs($ctx['manager'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/reject", [
+        // The transaction is now approved and should no longer
+        // be reviewable by the same manager.
+        $response = $this->actingAs(
+            $ctx['manager'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/reject",
+            [
                 'comment' => 'Too late.',
-            ]);
+            ]
+        );
 
-        $response->assertStatus(409);
+        $response->assertForbidden();
     }
 
     /*
@@ -361,32 +541,58 @@ class WorkflowTest extends TestCase
     {
         $ctx = $this->makePendingTransaction();
 
-        $this->actingAs($ctx['manager'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/approve", ['comment' => 'Approved.'])
-            ->assertOk();
+        $this->actingAs(
+            $ctx['manager'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/approve",
+            [
+                'comment' => 'Approved.',
+            ]
+        )->assertOk();
 
-        $this->assertDatabaseHas('transaction_histories', [
-            'transaction_id' => $ctx['transaction']->id,
-            'action' => TransactionHistoryAction::ApprovedStep->value,
-        ]);
+        $this->assertDatabaseHas(
+            'transaction_histories',
+            [
+                'transaction_id' => $ctx['transaction']->id,
+                'action' => TransactionHistoryAction::ApprovedStep->value,
+            ]
+        );
 
-        $this->assertDatabaseHas('transaction_histories', [
-            'transaction_id' => $ctx['transaction']->id,
-            'action' => TransactionHistoryAction::FullyApproved->value,
-        ]);
+        $this->assertDatabaseHas(
+            'transaction_histories',
+            [
+                'transaction_id' => $ctx['transaction']->id,
+                'action' => TransactionHistoryAction::FullyApproved->value,
+            ]
+        );
     }
 
     public function test_workflow_actions_create_notifications(): void
     {
         $ctx = $this->makePendingTransaction();
 
-        $this->actingAs($ctx['manager'], 'sanctum')
-            ->postJson("/api/v1/manager/transactions/{$ctx['transaction']->id}/approve", ['comment' => 'Approved.'])
-            ->assertOk();
+        $response = $this->actingAs(
+            $ctx['manager'],
+            'sanctum'
+        )->postJson(
+            "/api/v1/manager/transactions/{$ctx['transaction']->id}/approve",
+            [
+                'comment' => 'Approved.',
+            ]
+        );
+
+        $response->assertOk();
 
         $this->assertTrue(
-            Notification::where('transaction_id', $ctx['transaction']->id)
-                ->where('user_id', $ctx['employee']->id)
+            Notification::where(
+                'transaction_id',
+                $ctx['transaction']->id
+            )
+                ->where(
+                    'user_id',
+                    $ctx['employee']->id
+                )
                 ->exists()
         );
     }
@@ -399,50 +605,88 @@ class WorkflowTest extends TestCase
 
     public function test_approved_transaction_can_be_completed(): void
     {
-        $admin = User::factory()->admin()->create();
-        $department = Department::factory()->create();
-        $employee = User::factory()->employee($department)->create();
-        $type = TransactionType::factory()->create(['destination_department_id' => $department->id]);
+        $admin = User::factory()
+            ->admin()
+            ->create();
 
-        $transaction = Transaction::factory()->approved()->create([
-            'created_by' => $employee->id,
-            'transaction_type_id' => $type->id,
-            'source_department_id' => $department->id,
+        $department = Department::factory()->create();
+
+        $employee = User::factory()
+            ->employee($department)
+            ->create();
+
+        $type = TransactionType::factory()->create([
             'destination_department_id' => $department->id,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/admin/transactions/{$transaction->id}/complete", [
-                'comment' => 'Executed and closed.',
+        $transaction = Transaction::factory()
+            ->approved()
+            ->create([
+                'created_by' => $employee->id,
+                'transaction_type_id' => $type->id,
+                'source_department_id' => $department->id,
+                'destination_department_id' => $department->id,
             ]);
 
-        $response->assertOk()
-            ->assertJsonPath('data.status', 'completed');
+        $response = $this->actingAs(
+            $admin,
+            'sanctum'
+        )->postJson(
+            "/api/v1/admin/transactions/{$transaction->id}/complete",
+            [
+                'comment' => 'Executed and closed.',
+            ]
+        );
 
-        $this->assertDatabaseHas('transactions', [
-            'id' => $transaction->id,
-            'status' => TransactionStatus::Completed->value,
-        ]);
+        $response->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'completed'
+            );
+
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $transaction->id,
+                'status' => TransactionStatus::Completed->value,
+            ]
+        );
     }
 
     public function test_non_approved_transaction_cannot_be_completed(): void
     {
-        $admin = User::factory()->admin()->create();
-        $department = Department::factory()->create();
-        $employee = User::factory()->employee($department)->create();
-        $type = TransactionType::factory()->create(['destination_department_id' => $department->id]);
+        $admin = User::factory()
+            ->admin()
+            ->create();
 
-        $transaction = Transaction::factory()->pending()->create([
-            'created_by' => $employee->id,
-            'transaction_type_id' => $type->id,
-            'source_department_id' => $department->id,
+        $department = Department::factory()->create();
+
+        $employee = User::factory()
+            ->employee($department)
+            ->create();
+
+        $type = TransactionType::factory()->create([
             'destination_department_id' => $department->id,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/admin/transactions/{$transaction->id}/complete", [
-                'comment' => 'Should not complete.',
+        $transaction = Transaction::factory()
+            ->pending()
+            ->create([
+                'created_by' => $employee->id,
+                'transaction_type_id' => $type->id,
+                'source_department_id' => $department->id,
+                'destination_department_id' => $department->id,
             ]);
+
+        $response = $this->actingAs(
+            $admin,
+            'sanctum'
+        )->postJson(
+            "/api/v1/admin/transactions/{$transaction->id}/complete",
+            [
+                'comment' => 'Should not complete.',
+            ]
+        );
 
         $response->assertStatus(409);
     }
