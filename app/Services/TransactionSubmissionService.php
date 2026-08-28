@@ -259,6 +259,9 @@ class TransactionSubmissionService
 
                 /*
                  * Reset the returned step first.
+                 *
+                 * It is temporarily set to Waiting because we still
+                 * need to determine whether this step should be skipped.
                  */
                 $returnedStep->update([
                     'status' =>
@@ -313,6 +316,18 @@ class TransactionSubmissionService
                             'Transaction resubmitted successfully and was automatically approved because no review step remained.',
                     ];
                 }
+
+                /*
+                 * The selected workflow step is now active.
+                 *
+                 * This is important for resubmission:
+                 * the returned step must become Pending so the
+                 * responsible manager can review it again.
+                 */
+                $nextStep->update([
+                    'status' =>
+                        WorkflowStepStatus::Pending,
+                ]);
 
                 $transaction->update([
                     'status' =>
@@ -717,4 +732,3 @@ class TransactionSubmissionService
         ]);
     }
 }
-

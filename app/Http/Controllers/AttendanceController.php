@@ -3,11 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AttendanceController extends Controller
 {
+    /**
+     * Working hours.
+     */
+    private const WORK_START = '09:00';
+
+    private const WORK_END = '17:00';
+
     /**
      * Get today's attendance record.
      */
@@ -21,7 +29,6 @@ class AttendanceController extends Controller
 
         return response()->json([
             'success' => true,
-
             'data' => $attendance,
         ]);
     }
@@ -34,7 +41,9 @@ class AttendanceController extends Controller
     ): JsonResponse {
         $user = $request->user();
 
-        // Do not allow inactive accounts.
+        /*
+         * Do not allow inactive accounts.
+         */
         if (! $user->isActive()) {
             return response()->json([
                 'success' => false,
@@ -42,7 +51,9 @@ class AttendanceController extends Controller
             ], 403);
         }
 
-        // Do not allow check-in while on leave.
+        /*
+         * Do not allow check-in while on leave.
+         */
         if ($user->isOnLeave()) {
             return response()->json([
                 'success' => false,
@@ -50,10 +61,52 @@ class AttendanceController extends Controller
             ], 422);
         }
 
+        /*
+         * Check whether the current time is inside
+         * the allowed working hours.
+         *
+         * Example:
+         * 08:59 -> not allowed
+         * 09:00 -> allowed
+         * 12:00 -> allowed
+         * 16:59 -> allowed
+         * 17:00 -> not allowed
+         */
+        $now = now();
+
+        $workStart = Carbon::createFromTimeString(
+            self::WORK_START,
+            $now->getTimezone()
+        );
+
+        $workEnd = Carbon::createFromTimeString(
+            self::WORK_END,
+            $now->getTimezone()
+        );
+
+        if (
+            $now->lt($workStart) ||
+            $now->gte($workEnd)
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' =>
+                    'Check-in is only allowed between ' .
+                    Carbon::parse(self::WORK_START)
+                        ->format('g:i A') .
+                    ' and ' .
+                    Carbon::parse(self::WORK_END)
+                        ->format('g:i A') .
+                    '.',
+            ], 422);
+        }
+
         $attendance = $user
             ->todayAttendance();
 
-        // Already checked in and still working.
+        /*
+         * Already checked in and still working.
+         */
         if (
             $attendance &&
             $attendance->check_in_at &&
@@ -66,8 +119,9 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        // If today's record exists and already has
-        // a check-out, do not create another one.
+        /*
+         * Today's attendance is already completed.
+         */
         if (
             $attendance &&
             $attendance->check_in_at &&
@@ -75,18 +129,21 @@ class AttendanceController extends Controller
         ) {
             return response()->json([
                 'success' => false,
-                'message' => 'You have already completed attendance for today.',
+                'message' =>
+                    'You have already completed attendance for today.',
                 'data' => $attendance,
             ], 422);
         }
 
-        $attendance =
-            Attendance::create([
-                'user_id' => $user->id,
-                'date' => now()->toDateString(),
-                'check_in_at' => now(),
-                'check_out_at' => null,
-            ]);
+        /*
+         * Create today's attendance record.
+         */
+        $attendance = Attendance::create([
+            'user_id' => $user->id,
+            'date' => $now->toDateString(),
+            'check_in_at' => $now,
+            'check_out_at' => null,
+        ]);
 
         return response()->json([
             'success' => true,
@@ -106,15 +163,20 @@ class AttendanceController extends Controller
         $attendance = $user
             ->todayAttendance();
 
-        // No check-in today.
+        /*
+         * No check-in today.
+         */
         if (! $attendance) {
             return response()->json([
                 'success' => false,
-                'message' => 'You have not checked in today.',
+                'message' =>
+                    'You have not checked in today.',
             ], 422);
         }
 
-        // Already checked out.
+        /*
+         * Already checked out.
+         */
         if ($attendance->check_out_at) {
             return response()->json([
                 'success' => false,
@@ -123,6 +185,9 @@ class AttendanceController extends Controller
             ], 422);
         }
 
+        /*
+         * Store the current checkout time.
+         */
         $attendance->update([
             'check_out_at' => now(),
         ]);

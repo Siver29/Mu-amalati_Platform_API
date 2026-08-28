@@ -7,7 +7,7 @@ use App\Http\Resources\TransactionTypeResource;
 use App\Http\Responses\ApiResponse;
 use App\Models\TransactionType;
 use Illuminate\Http\JsonResponse;
-use App\Http\Resources\TransactionTypeFieldResource;
+
 class TransactionTypeController extends Controller
 {
     use ApiResponse;
@@ -17,45 +17,78 @@ class TransactionTypeController extends Controller
      */
     public function index(): JsonResponse
     {
-        $types = TransactionType::with(['destinationDepartment', 'workflowSteps.department'])
-            ->where('is_active', true)
-            ->orderBy('name_en')
+        $types = TransactionType::query()
+            ->with([
+                'destinationDepartment',
+                'workflowSteps.department',
+            ])
+            ->where(
+                'is_active',
+                true
+            )
+            ->orderBy(
+                'name_en'
+            )
             ->get();
 
-        return $this->success(TransactionTypeResource::collection($types));
+        return $this->success(
+            TransactionTypeResource::collection(
+                $types
+            )
+        );
     }
 
     /**
      * Show a single active transaction type.
      */
-    public function show(TransactionType $transactionType): JsonResponse
-    {
-        if (! $transactionType->is_active) {
-            return $this->notFound('Transaction type not found.');
+    public function show(
+        TransactionType $transactionType
+    ): JsonResponse {
+        if (
+            ! $transactionType->is_active
+        ) {
+            return $this->notFound(
+                'Transaction type not found.'
+            );
         }
 
-        $transactionType->load(['destinationDepartment', 'workflowSteps.department']);
+        $transactionType->load([
+            'destinationDepartment',
+            'workflowSteps.department',
+        ]);
 
-        return $this->success(new TransactionTypeResource($transactionType));
-    }
-
-    public function fields(TransactionType $transactionType): JsonResponse
-{
-    if (! $transactionType->is_active) {
-        return $this->notFound(
-            'Transaction type not found.'
+        return $this->success(
+            new TransactionTypeResource(
+                $transactionType
+            )
         );
     }
 
-    $fields = $transactionType
-        ->fields()
-        ->orderBy('field_order')
-        ->get();
+    /**
+     * List fields for an active transaction type.
+     */
+    public function fields(
+        TransactionType $transactionType
+    ): JsonResponse {
+        if (
+            ! $transactionType->is_active
+        ) {
+            return $this->notFound(
+                'Transaction type not found.'
+            );
+        }
 
-    return $this->success(
-        \App\Http\Resources\TransactionTypeFieldResource::collection(
-            $fields
-        )
-    );
-}
+        $fields = $transactionType
+            ->fields()
+            ->orderBy(
+                'field_order'
+            )
+            ->get();
+
+        return $this->success(
+            \App\Http\Resources\TransactionTypeFieldResource::collection(
+                $fields
+            )
+        );
+    }
 }
