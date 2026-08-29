@@ -17,22 +17,44 @@ class DepartmentController extends Controller
      */
     public function index(): JsonResponse
     {
-        $departments = Department::with('manager')->active()->orderBy('name')->get();
+        $departments = Department::query()
+            ->select([
+                'id',
+                'name',
+                'description',
+                'is_active',
+                'created_at',
+                'updated_at',
+            ])
+            ->active()
+            ->orderBy('name')
+            ->get();
 
-        return $this->success(DepartmentResource::collection($departments));
+        return $this->success(
+            DepartmentResource::collection(
+                $departments
+            )
+        );
     }
 
     /**
      * Show a single active department.
      */
-    public function show(Department $department): JsonResponse
-    {
+    public function show(
+        Department $department
+    ): JsonResponse {
         if (! $department->is_active) {
-            return $this->notFound('Department not found.');
+            return $this->notFound(
+                'Department not found.'
+            );
         }
 
         $department->load('manager');
 
-        return $this->success(new DepartmentResource($department));
+        return $this->success(
+            new DepartmentResource(
+                $department
+            )
+        );
     }
 }
