@@ -13,14 +13,20 @@ class TransactionTypeController extends Controller
     use ApiResponse;
 
     /**
-     * List active transaction types with their workflow steps.
+     * List active transaction types for dropdowns.
      */
     public function index(): JsonResponse
     {
         $types = TransactionType::query()
-            ->with([
-                'destinationDepartment',
-                'workflowSteps.department',
+            ->select([
+                'id',
+                'name_en',
+                'name_ar',
+                'description',
+                'requires_attachment',
+                'is_active',
+                'created_at',
+                'updated_at',
             ])
             ->where(
                 'is_active',
@@ -44,9 +50,7 @@ class TransactionTypeController extends Controller
     public function show(
         TransactionType $transactionType
     ): JsonResponse {
-        if (
-            ! $transactionType->is_active
-        ) {
+        if (! $transactionType->is_active) {
             return $this->notFound(
                 'Transaction type not found.'
             );
@@ -70,9 +74,7 @@ class TransactionTypeController extends Controller
     public function fields(
         TransactionType $transactionType
     ): JsonResponse {
-        if (
-            ! $transactionType->is_active
-        ) {
+        if (! $transactionType->is_active) {
             return $this->notFound(
                 'Transaction type not found.'
             );

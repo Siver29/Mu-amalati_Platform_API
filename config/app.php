@@ -65,8 +65,7 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
-
+'timezone' => 'Asia/Amman',
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
