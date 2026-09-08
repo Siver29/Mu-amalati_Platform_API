@@ -12,7 +12,7 @@ class AttendanceController extends Controller
     /**
      * Working hours.
      */
-    private const WORK_START = '09:00';
+    private const WORK_START = '07:00';
 
     private const WORK_END = '17:00';
 
