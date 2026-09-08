@@ -1,6 +1,9 @@
-FROM php:8.3-apache
+FROM php:8.3-apache-bookworm
 
-# Install system dependencies and PHP extensions
+# ============================================================
+# System dependencies + PHP extensions
+# ============================================================
+
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -17,25 +20,9 @@ RUN apt-get update && apt-get install -y \
         intl \
         zip \
         xml \
+    && a2enmod rewrite \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-
-# ============================================================
-# Apache MPM - FORCE ONLY PREFORK
-# ============================================================
-
-# Remove ALL enabled MPM modules
-RUN rm -f /etc/apache2/mods-enabled/mpm_*.load \
-          /etc/apache2/mods-enabled/mpm_*.conf
-
-# Enable ONLY prefork
-RUN a2enmod mpm_prefork
-
-# Enable Laravel rewrite support
-RUN a2enmod rewrite
-
-# Verify Apache configuration during BUILD
-RUN apache2ctl configtest
 
 # ============================================================
 # Composer
@@ -56,7 +43,10 @@ RUN composer install \
     --optimize-autoloader \
     --no-interaction
 
+# ============================================================
 # Laravel permissions
+# ============================================================
+
 RUN chown -R www-data:www-data \
     storage \
     bootstrap/cache
@@ -77,7 +67,7 @@ RUN printf '%s\n' \
     >> /etc/apache2/apache2.conf
 
 # ============================================================
-# Railway Port
+# Railway PORT
 # ============================================================
 
 ENV PORT=10000
@@ -85,12 +75,20 @@ ENV PORT=10000
 RUN sed -i 's/Listen 80/Listen 10000/' \
     /etc/apache2/ports.conf
 
-RUN sed -i 's/<VirtualHost \*:80>/<VirtualHost *:10000>/' \
+RUN sed -i \
+    's/<VirtualHost \*:80>/<VirtualHost *:10000>/' \
     /etc/apache2/sites-available/000-default.conf
 
 EXPOSE 10000
 
-# Final configuration check
+# ============================================================
+# Verify Apache configuration
+# ============================================================
+
 RUN apache2ctl configtest
+
+# ============================================================
+# Start Apache
+# ============================================================
 
 CMD ["apache2-foreground"]
