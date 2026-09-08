@@ -67,7 +67,7 @@ class AdminAttendanceController extends Controller
         /*
          * Company work schedule.
          */
-        $workStartTime = '09:00';
+        $workStartTime = '07:00';
         $workEndTime = '17:00';
 
         /*
