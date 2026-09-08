@@ -17,7 +17,8 @@ RUN apt-get update && apt-get install -y \
     intl \
     zip \
     xml \
-    && a2enmod rewrite \
+    && a2dismod mpm_event || true \
+    && a2enmod mpm_prefork rewrite \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -42,7 +43,7 @@ RUN chown -R www-data:www-data \
 RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|' /etc/apache2/sites-available/000-default.conf \
     && sed -i 's|<Directory /var/www/>|<Directory /var/www/html/public/>|' /etc/apache2/apache2.conf
 
-# Render uses port 10000 by default
+# Railway uses PORT environment variable
 ENV PORT=10000
 
 RUN sed -i 's/Listen 80/Listen 10000/' /etc/apache2/ports.conf \
